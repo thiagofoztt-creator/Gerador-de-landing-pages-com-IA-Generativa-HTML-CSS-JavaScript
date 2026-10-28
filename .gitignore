@@ -1,0 +1,20 @@
+
+# Credenciais e variáveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Dependências Node.js
+node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Arquivos locais
+.DS_Store
+Thumbs.db
+
+# Arquivos do editor
+.vscode/
+.idea/

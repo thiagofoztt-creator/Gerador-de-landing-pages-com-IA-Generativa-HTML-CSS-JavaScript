@@ -83,6 +83,64 @@ export default {
         }, 400);
       }
 
+      // Validar Cloudflare Turnstile no servidor
+      const turnstileToken = corpo?.turnstileToken;
+
+      if (
+        typeof turnstileToken !== "string" ||
+        !turnstileToken ||
+        turnstileToken.length > 2048
+      ) {
+        return json({
+          erro: "Verificação de segurança obrigatória."
+        }, 403);
+      }
+
+      if (!env.TURNSTILE_SECRET_KEY) {
+        console.error("Turnstile não configurado.");
+
+        return json({
+          erro: "Serviço de segurança indisponível."
+        }, 503);
+      }
+
+      const verificacao = await fetch(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            secret: env.TURNSTILE_SECRET_KEY,
+            response: turnstileToken,
+            remoteip:
+              request.headers.get("CF-Connecting-IP") || undefined
+          }),
+          signal: AbortSignal.timeout(10000)
+        }
+      );
+
+      if (!verificacao.ok) {
+        return json({
+          erro: "Não foi possível verificar o Turnstile."
+        }, 502);
+      }
+
+      const resultadoTurnstile = await verificacao.json();
+
+      if (
+        resultadoTurnstile.success !== true ||
+        resultadoTurnstile.hostname !== url.hostname
+      ) {
+        return json({
+          erro: "Verificação de segurança inválida ou expirada."
+        }, 403);
+      }
+
+      // Somente após validação bem-sucedida,
+      // a solicitação pode seguir para o Gemini.
+
       const prompt = `
 Você é um desenvolvedor frontend especialista em UI/UX.
 

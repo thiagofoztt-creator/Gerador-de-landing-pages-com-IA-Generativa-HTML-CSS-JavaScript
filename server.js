@@ -12,8 +12,9 @@ const app = express();
 const PORT = 3000;
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
-app.use(cors());
-app.use(express.json());
+
+app.use(express.json({ limit: "4kb" }));
+
 
 const raiz = path.dirname(fileURLToPath(import.meta.url));
 
@@ -35,13 +36,21 @@ app.get("/js/script.js", (req, res) => {
 
 app.post("/gerar", async (req, res) => {
     try {
-        const { descricao } = req.body;
+        
+const descricao = req.body?.descricao;
 
-        if (!descricao) {
-            return res.status(400).json({
-                erro: "Descrição não enviada."
-            });
-        }
+if (
+    typeof descricao !== "string" ||
+    descricao.trim().length < 5 ||
+    descricao.trim().length > 500
+) {
+    return res.status(400).json({
+        erro: "A descrição deve conter entre 5 e 500 caracteres."
+    });
+}
+
+const descricaoValidada = descricao.trim();
+
 
         if (!process.env.GROQ_API_KEY) {
             return res.status(500).json({
@@ -79,7 +88,7 @@ Regras obrigatórias:
                     },
                     {
                         role: "user",
-                        content: `Crie uma landing page profissional e bonita sobre: ${descricao}`
+                        content: `Crie uma landing page profissional e bonita sobre: ${descricaoValidada}`
                     }
                 ]
             })

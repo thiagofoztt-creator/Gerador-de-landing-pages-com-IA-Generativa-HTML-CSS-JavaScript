@@ -156,8 +156,34 @@ export default {
         }, 403);
       }
 
-      // Somente após validação bem-sucedida,
-      // a solicitação pode seguir para o Gemini.
+      
+      // Controle global de gerações por dia
+      if (!env.COTA_DIARIA) {
+        console.error("Durable Object não configurado.");
+
+        return json({
+          erro: "Controle de cota diária indisponível."
+        }, 503);
+      }
+
+      // Todos os usuários compartilham o mesmo contador
+      const contador = env.COTA_DIARIA.getByName(
+        "gerador-global"
+      );
+
+      // Reservar uma geração antes de chamar o Gemini
+      const cota = await contador.reservar();
+
+      if (!cota.permitido) {
+        return json({
+          erro: "Limite diário de 50 gerações atingido."
+        }, 429);
+      }
+
+      console.log(
+        `Cota diária: ${cota.utilizadas}/${cota.limite}`
+      );
+
 
       const prompt = `
 Você é um desenvolvedor frontend especialista em UI/UX.

@@ -1,13 +1,15 @@
 
 {
-  "name": "gerador-landing-pages-ia",
+  "name": "gerador-de-landing-pages-com-ia",
   "main": "worker/index.js",
   "compatibility_date": "2026-10-28",
+
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
     "run_worker_first": ["/gerar"]
   },
+
   "ratelimits": [
     {
       "name": "LIMITE_GERACAO",
@@ -17,5 +19,21 @@
         "period": 60
       }
     }
-  ]
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "COTA_DIARIA",
+        "class_name": "CotaDiaria"
+      }
+    ]
+  },
+
+  "exports": {
+    "CotaDiaria": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  }
 }

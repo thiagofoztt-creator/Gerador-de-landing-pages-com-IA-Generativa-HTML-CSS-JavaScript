@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import "./env.js";
+import "dotenv/config";
 
 console.log("CHAVE:");
 console.log(process.env.GROQ_API_KEY ? "Carregada com sucesso" : "Não encontrada");

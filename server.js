@@ -1,134 +1,166 @@
+
 import express from "express";
-import cors from "cors";
 import "dotenv/config";
-import { rateLimit } from "express-rate-limit";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-
-console.log("CHAVE:");
-console.log(process.env.GROQ_API_KEY ? "Carregada com sucesso" : "Não encontrada");
+import { rateLimit } from "express-rate-limit";
 
 const app = express();
-const PORT = 3000;
-const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
+const PORT = process.env.PORT || 3000;
 
+const MODELO = "gemini-2.5-flash";
+
+const GEMINI_URL =
+  `https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent`;
+
+const raiz = path.dirname(fileURLToPath(import.meta.url));
 
 app.use(express.json({ limit: "4kb" }));
 
-
+// Limitar requisições para reduzir abusos
 const limiteGeracao = rateLimit({
   windowMs: 60 * 1000,
   limit: 20,
   standardHeaders: "draft-8",
   legacyHeaders: false,
   message: {
-    erro: "Limite de 5 solicitações por minuto atingido. Tente novamente mais tarde."
+    erro: "Limite de solicitações atingido. Tente novamente mais tarde."
   }
 });
 
-
-const raiz = path.dirname(fileURLToPath(import.meta.url));
-
-// Página principal
+// Arquivos públicos autorizados
 app.get("/", (req, res) => {
   res.sendFile(path.join(raiz, "index.html"));
 });
 
-// Estilos da aplicação
 app.get("/style.css", (req, res) => {
   res.sendFile(path.join(raiz, "style.css"));
 });
 
-// JavaScript do frontend
 app.get("/js/script.js", (req, res) => {
   res.sendFile(path.join(raiz, "js", "script.js"));
 });
 
-
+// API de geração com Google Gemini
 app.post("/gerar", limiteGeracao, async (req, res) => {
-    try {
-        
-const descricao = req.body?.descricao;
+  try {
+    const descricao = req.body?.descricao;
 
-if (
-    typeof descricao !== "string" ||
-    descricao.trim().length < 5 ||
-    descricao.trim().length > 500
-) {
-    return res.status(400).json({
+    if (
+      typeof descricao !== "string" ||
+      descricao.trim().length < 5 ||
+      descricao.trim().length > 500
+    ) {
+      return res.status(400).json({
         erro: "A descrição deve conter entre 5 e 500 caracteres."
-    });
-}
-
-const descricaoValidada = descricao.trim();
-
-
-        if (!process.env.GROQ_API_KEY) {
-            return res.status(500).json({
-                erro: "GROQ_API_KEY não encontrada no arquivo .env."
-            });
-        }
-
-        const resposta = await fetch(GROQ_URL, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${process.env.GROQ_API_KEY}`
-            },
-            body: JSON.stringify({
-                model: "llama-3.3-70b-versatile",
-                temperature: 0.8,
-                messages: [
-                    {
-                        role: "system",
-                        content: `
-Você é um designer frontend sênior.
-Crie uma landing page premium, moderna e responsiva.
-
-Regras obrigatórias:
-- Retorne apenas HTML completo
-- Não use markdown
-- Não escreva blocos com crases
-- Não explique nada
-- Inclua CSS interno dentro de <style>
-- Use header, hero, cards, botões e footer
-- Use cores modernas, sombras suaves, bordas arredondadas e responsividade
-- Não use imagens quebradas
-- Se precisar de imagem, use emojis, ícones, gradientes ou placeholders bonitos em CSS
-`
-                    },
-                    {
-                        role: "user",
-                        content: `Crie uma landing page profissional e bonita sobre: ${descricaoValidada}`
-                    }
-                ]
-            })
-        });
-
-        const dados = await resposta.json();
-
-        if (!resposta.ok) {
-            return res.status(500).json({
-                erro: dados.error?.message || "Erro ao gerar conteúdo com IA."
-            });
-        }
-
-        const codigoGerado = dados.choices?.[0]?.message?.content;
-
-        return res.json({
-            codigo: codigoGerado || "<h1>Não foi possível gerar o site.</h1>"
-        });
-
-    } catch (erro) {
-        console.error("Erro no servidor:", erro);
-
-        return res.status(500).json({
-            erro: "Erro interno no servidor."
-        });
+      });
     }
+
+    if (!process.env.GEMINI_API_KEY) {
+      console.error("GEMINI_API_KEY não configurada.");
+
+      return res.status(503).json({
+        erro: "Serviço de IA indisponível."
+      });
+    }
+
+    const prompt = `
+Você é um desenvolvedor frontend e designer UI/UX experiente.
+
+Crie uma landing page profissional, moderna e responsiva.
+
+REGRAS:
+- Retorne um documento HTML completo.
+- Inclua o CSS dentro de <style>.
+- Não utilize JavaScript.
+- Não inclua scripts externos.
+- Não utilize iframes.
+- Não use imagens ou recursos externos.
+- Utilize gradientes, ícones CSS e elementos visuais modernos.
+- Crie header, hero, cards, botões e footer.
+- Utilize design responsivo.
+- Não utilize blocos Markdown.
+- Retorne somente HTML válido.
+
+DESCRIÇÃO DO USUÁRIO:
+${descricao.trim()}
+`;
+
+    const resposta = await fetch(GEMINI_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": process.env.GEMINI_API_KEY
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: prompt }]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 8192
+        }
+      }),
+      signal: AbortSignal.timeout(60000)
+    });
+
+    const dados = await resposta.json();
+
+    if (!resposta.ok) {
+      console.error(
+        "Erro Gemini:",
+        resposta.status,
+        dados.error?.message
+      );
+
+      return res.status(
+        resposta.status === 429 ? 429 : 502
+      ).json({
+        erro: resposta.status === 429
+          ? "Limite da API Gemini atingido."
+          : "Falha na comunicação com a IA."
+      });
+    }
+
+    let codigoGerado = (
+      dados.candidates?.[0]?.content?.parts || []
+    )
+      .map(parte => parte.text || "")
+      .join("")
+      .trim();
+
+    // Remover eventuais marcadores Markdown
+    codigoGerado = codigoGerado
+      .replace(/^```(?:html)?\s*/i, "")
+      .replace(/\s*```$/i, "")
+      .trim();
+
+    if (
+      !codigoGerado ||
+      !/<html[\s>]/i.test(codigoGerado)
+    ) {
+      return res.status(502).json({
+        erro: "A IA não retornou uma página HTML completa."
+      });
+    }
+
+    return res.json({
+      codigo: codigoGerado
+    });
+
+  } catch (erro) {
+    console.error("Erro no servidor:", erro.message);
+
+    return res.status(500).json({
+      erro: "Não foi possível gerar a página."
+    });
+  }
 });
 
 app.listen(PORT, () => {
-    console.log("Servidor rodando:");
-    console.log(`http://localhost:${PORT}`);
+  console.log(`Servidor disponível na porta ${PORT}`);
+  console.log(`Modelo configurado: ${MODELO}`);
 });

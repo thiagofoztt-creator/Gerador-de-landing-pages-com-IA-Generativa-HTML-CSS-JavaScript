@@ -2,6 +2,9 @@ import express from "express";
 import cors from "cors";
 import "dotenv/config";
 
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
 console.log("CHAVE:");
 console.log(process.env.GROQ_API_KEY ? "Carregada com sucesso" : "Não encontrada");
 
@@ -11,7 +14,24 @@ const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static("./"));
+
+const raiz = path.dirname(fileURLToPath(import.meta.url));
+
+// Página principal
+app.get("/", (req, res) => {
+  res.sendFile(path.join(raiz, "index.html"));
+});
+
+// Estilos da aplicação
+app.get("/style.css", (req, res) => {
+  res.sendFile(path.join(raiz, "style.css"));
+});
+
+// JavaScript do frontend
+app.get("/js/script.js", (req, res) => {
+  res.sendFile(path.join(raiz, "js", "script.js"));
+});
+
 
 app.post("/gerar", async (req, res) => {
     try {

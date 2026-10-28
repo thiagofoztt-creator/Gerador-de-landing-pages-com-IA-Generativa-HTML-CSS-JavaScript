@@ -82,6 +82,25 @@ export default {
           erro: "A descrição deve conter entre 5 e 500 caracteres."
         }, 400);
       }
+      
+      // Controle de requisições à API Gemini
+      // Limite configurado: 20 por minuto
+
+      if (!env.LIMITE_GERACAO) {
+        return json({
+          erro: "Controle de requisições indisponível."
+        }, 503);
+      }
+
+      const { success } = await env.LIMITE_GERACAO.limit({
+        key: "landing-pages-global"
+      });
+
+      if (!success) {
+        return json({
+          erro: "Limite de 20 requisições por minuto atingido."
+        }, 429);
+      }
 
       // Validar Cloudflare Turnstile no servidor
       const turnstileToken = corpo?.turnstileToken;

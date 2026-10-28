@@ -1,0 +1,11 @@
+
+{
+  "name": "gerador-landing-pages-ia",
+  "main": "worker/index.js",
+  "compatibility_date": "2026-10-28",
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": ["/gerar"]
+  }
+}

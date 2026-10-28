@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import "dotenv/config";
-
+import { rateLimit } from "express-rate-limit";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,6 +14,17 @@ const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
 
 app.use(express.json({ limit: "4kb" }));
+
+
+const limiteGeracao = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 20,
+  standardHeaders: "draft-8",
+  legacyHeaders: false,
+  message: {
+    erro: "Limite de 5 solicitações por minuto atingido. Tente novamente mais tarde."
+  }
+});
 
 
 const raiz = path.dirname(fileURLToPath(import.meta.url));
@@ -34,7 +45,7 @@ app.get("/js/script.js", (req, res) => {
 });
 
 
-app.post("/gerar", async (req, res) => {
+app.post("/gerar", limiteGeracao, async (req, res) => {
     try {
         
 const descricao = req.body?.descricao;

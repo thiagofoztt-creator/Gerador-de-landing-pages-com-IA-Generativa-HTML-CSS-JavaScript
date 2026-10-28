@@ -1,4 +1,4 @@
-
+import { DurableObject } from "cloudflare:workers";
 const MODELO = "gemini-2.5-flash";
 
 const GEMINI_URL =
@@ -48,7 +48,6 @@ export default {
       if (!tipo.toLowerCase().includes("application/json")) {
         return json({ erro: "Envie um JSON válido." }, 415);
       }
-
       const tamanho = Number(
         request.headers.get("content-length") || 0
       );
@@ -251,3 +250,45 @@ ${descricao.trim()}
     }
   }
 };
+
+export class CotaDiaria extends DurableObject {
+  constructor(ctx, env) {
+    super(ctx, env);
+
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS cotas (
+        dia TEXT PRIMARY KEY,
+        utilizadas INTEGER NOT NULL
+      )
+    `);
+  }
+
+  async reservar() {
+    const dia = new Date().toISOString().slice(0, 10);
+    const limite = 50;
+
+    const linhas = this.ctx.storage.sql.exec(`
+      INSERT INTO cotas (dia, utilizadas)
+      VALUES (?, 1)
+      ON CONFLICT(dia)
+      DO UPDATE SET utilizadas = utilizadas + 1
+      WHERE utilizadas < ?
+      RETURNING utilizadas
+    `, dia, limite).toArray();
+
+    if (linhas.length === 0) {
+      return {
+        permitido: false,
+        utilizadas: limite,
+        limite
+      };
+    }
+
+    return {
+      permitido: true,
+      utilizadas: linhas[0].utilizadas,
+      limite
+    };
+  }
+}
+

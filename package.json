@@ -1,12 +1,20 @@
+
 {
+  "name": "gerador-landing-pages-ia",
+  "version": "1.0.0",
+  "private": true,
   "type": "module",
   "scripts": {
-    "start": "node server.js"
-  },
+    "start": "node server.js",
+    "deploy": "wrangler deploy"
+  }
   "dependencies": {
     "cors": "^2.8.5",
-    "dotenv": "^17.2.3",    
+    "dotenv": "^17.2.3",
     "express": "^5.1.0",
-    "express-rate-limit": "^8.7.1",
+    "express-rate-limit": "^8.7.1"
+  }
+  "devDependencies": {
+    "wrangler": "^4.0.0"
   }
 }

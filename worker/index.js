@@ -314,10 +314,22 @@ console.log(
         }
       }
 
-      if (codigo.endsWith("```")) {
-        codigo = codigo.slice(0, -3).trim();
+      
+      // Validar se o Gemini retornou HTML completo
+      if (
+        !codigo ||
+        !/<html[\s>]/i.test(codigo) ||
+        !/<\/html\s*>/i.test(codigo)
+      ) {
+        return json({
+          erro: "A IA não retornou HTML completo."
+        }, 502);
       }
 
+      // Retornar a página gerada
+      return json({ codigo });
+
+    } catch (erro) {
       console.error("Erro na geração:", erro.message);
 
       return json({
@@ -326,6 +338,7 @@ console.log(
     }
   }
 };
+
 
 export class CotaDiaria extends DurableObject {
   constructor(ctx, env) {

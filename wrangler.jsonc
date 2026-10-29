@@ -1,6 +1,8 @@
 
+
 {
   "name": "gerador-de-landing-pages-com-ia",
+  "keep_vars": true,
   "main": "worker/index.js",
   "compatibility_date": "2026-10-28",
 

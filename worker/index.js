@@ -261,7 +261,7 @@ ${descricao.trim()}
          
 generationConfig: {
   temperature: 0.6,
-  maxOutputTokens: 65.536,
+  maxOutputTokens: 65536,
   thinkingConfig: {
     thinkingBudget: 0
   }
@@ -277,7 +277,15 @@ generationConfig: {
           }, 429);
         }
 
-        console.error("Gemini HTTP:", resposta.status);
+        
+const erroGemini = await resposta.json().catch(() => null);
+
+console.error("Gemini HTTP:", resposta.status);
+console.error(
+  "Gemini error status:",
+  erroGemini?.error?.status || "Não informado"
+);
+
 
         return json({
           erro: "Falha na comunicação com a IA."

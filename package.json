@@ -1,4 +1,3 @@
-
 {
   "name": "gerador-de-landing-pages-com-ia",
   "version": "1.0.0",
@@ -15,6 +14,6 @@
     "express-rate-limit": "^8.7.1"
   },
   "devDependencies": {
-    "wrangler": "^4.0.0"
+    "wrangler": "^4.155.0"
   }
 }

@@ -251,8 +251,8 @@ ${descricao.trim()}
           ],
          
 generationConfig: {
-  temperature: 0.5,
-  maxOutputTokens: 8192,
+  temperature: 0.6,
+  maxOutputTokens: 16384,
   thinkingConfig: {
     thinkingBudget: 0
   }

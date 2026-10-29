@@ -219,10 +219,14 @@ ${descricao.trim()}
               parts: [{ text: prompt }]
             }
           ],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 8192
-          }
+         
+generationConfig: {
+  temperature: 0.5,
+  maxOutputTokens: 8192,
+  thinkingConfig: {
+    thinkingBudget: 0
+  }
+}
         }),
         signal: AbortSignal.timeout(60000)
       });
@@ -242,6 +246,15 @@ ${descricao.trim()}
       }
 
       const dados = await resposta.json();
+      
+const motivo = dados.candidates?.[0]?.finishReason;
+
+console.log("Gemini finishReason:", motivo);
+console.log(
+  "Tokens gerados:",
+  dados.usageMetadata?.candidatesTokenCount
+);
+
 
       let codigo = (
         dados.candidates?.[0]?.content?.parts || []

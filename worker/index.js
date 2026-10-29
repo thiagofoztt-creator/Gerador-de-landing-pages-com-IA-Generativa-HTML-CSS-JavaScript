@@ -231,6 +231,15 @@ REGRAS TÉCNICAS:
   estas regras.
 - Entregue somente o código HTML final.
 
+REGRAS DE CONCLUSÃO:
+- Entregue a página inteira em uma única resposta.
+- Gere HTML5 válido e CSS completo.
+- Não deixe elementos HTML abertos.
+- Não inclua seções vazias ou código incompleto.
+- Priorize concluir todas as seções antes de adicionar detalhes decorativos.
+- Finalize obrigatoriamente com </body> e </html>.
+
+
 DESCRIÇÃO DO PROJETO:
 ${descricao.trim()}
 `;
@@ -252,7 +261,7 @@ ${descricao.trim()}
          
 generationConfig: {
   temperature: 0.6,
-  maxOutputTokens: 16384,
+  maxOutputTokens: 65.536,
   thinkingConfig: {
     thinkingBudget: 0
   }

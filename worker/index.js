@@ -293,24 +293,31 @@ console.log(
         .join("")
         .trim();
 
-      codigo = codigo
-        .replace(/^```(?:html)?\s*/i, "")
-        .replace(/\s*```$/i, "")
-        .trim();
+      
+      // Remover marcadores Markdown sem regex
+      codigo = codigo.trim();
 
-      if (
-        !codigo ||
-        !/<html[\s>]/i.test(codigo) ||
-        !/<\/html\s*>/i.test(codigo)
-      ) {
-        return json({
-          erro: "A IA não retornou HTML completo."
-        }, 502);
+      if (codigo.startsWith("```")) {
+        const primeiraQuebra = codigo.indexOf("\n");
+
+        if (primeiraQuebra !== -1) {
+          const linguagem = codigo
+            .slice(3, primeiraQuebra)
+            .trim()
+            .toLowerCase();
+
+          if (linguagem === "" || linguagem === "html") {
+            codigo = codigo
+              .slice(primeiraQuebra + 1)
+              .trim();
+          }
+        }
       }
 
-      return json({ codigo });
+      if (codigo.endsWith("```")) {
+        codigo = codigo.slice(0, -3).trim();
+      }
 
-    } catch (erro) {
       console.error("Erro na geração:", erro.message);
 
       return json({

@@ -6,6 +6,9 @@ import { fileURLToPath } from "node:url";
 import { rateLimit } from "express-rate-limit";
 
 const app = express();
+// Impedir a divulgação do framework nos cabeçalhos HTTP
+app.disable("x-powered-by");
+
 const PORT = process.env.PORT || 3000;
 
 const MODELO = "gemini-2.5-flash";

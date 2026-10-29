@@ -110,11 +110,7 @@ ${descricao.trim()}
     const dados = await resposta.json();
 
     if (!resposta.ok) {
-      console.error(
-        "Erro Gemini:",
-        resposta.status,
-        dados.error?.message
-      );
+      console.error("Erro Gemini HTTP:", resposta.status);
 
       return res.status(
         resposta.status === 429 ? 429 : 502
@@ -133,10 +129,28 @@ ${descricao.trim()}
       .trim();
 
     // Remover eventuais marcadores Markdown
-    codigoGerado = codigoGerado
-      .replace(/^```(?:html)?\s*/i, "")
-      .replace(/\s*```$/i, "")
-      .trim();
+    
+codigoGerado = codigoGerado.trim();
+
+if (codigoGerado.startsWith("```")) {
+  const quebra = codigoGerado.indexOf("\n");
+
+  if (quebra !== -1) {
+    const linguagem = codigoGerado
+      .slice(3, quebra)
+      .trim()
+      .toLowerCase();
+
+    if (linguagem === "" || linguagem === "html") {
+      codigoGerado = codigoGerado.slice(quebra + 1).trim();
+    }
+  }
+}
+
+if (codigoGerado.endsWith("```")) {
+  codigoGerado = codigoGerado.slice(0, -3).trim();
+}
+
 
     if (
       !codigoGerado ||

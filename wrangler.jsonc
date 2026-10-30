@@ -38,8 +38,13 @@
     }
   },
 
-  "previews": {
-    "ratelimits": [
+  
+"previews": {
+  "vars": {
+    "ENABLE_GENERATION": "true"
+  },
+  "ratelimits": [
+
       {
         "name": "LIMITE_GERACAO",
         "namespace_id": "2002",

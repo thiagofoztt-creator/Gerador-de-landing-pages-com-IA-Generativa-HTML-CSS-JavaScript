@@ -42,10 +42,25 @@
     preview.srcdoc = code.value || '<!doctype html><html lang="pt-BR"><body style="font-family:sans-serif;padding:2rem"><h2>Nenhum site carregado</h2></body></html>';
     status.textContent = message;
   }
-  let initial = '';
-  try { initial = sessionStorage.getItem(KEY) || ''; } catch (_) {}
-  if (!initial) { try { initial = localStorage.getItem(KEY) || ''; } catch (_) {} }
-  code.value = initial;
+  
+let initial = '';
+
+try {
+  initial = localStorage.getItem(KEY) || '';
+} catch (erro) {
+  console.error('Erro ao recuperar projeto salvo:', erro);
+}
+
+if (!initial) {
+  try {
+    initial = sessionStorage.getItem(KEY) || '';
+  } catch (erro) {
+    console.error('Erro ao recuperar projeto temporário:', erro);
+  }
+}
+
+code.value = initial;
+
   preview.dataset.device = 'desktop';
   updateElements(); render();
   document.getElementById('refresh').addEventListener('click', () => { updateElements(); render(); });
@@ -84,10 +99,29 @@
     event.currentTarget.setAttribute('aria-pressed', String(hidden));
     event.currentTarget.textContent = hidden ? 'Mostrar HTML' : 'Ocultar HTML';
   });
-  document.getElementById('save').addEventListener('click', () => {
-    try { localStorage.setItem(KEY, code.value); status.textContent = 'Salvo somente neste navegador.'; }
-    catch (_) { status.textContent = 'Não foi possível salvar. Use Baixar HTML.'; }
-  });
+  
+document.getElementById('save').addEventListener('click', () => {
+  const botao = document.getElementById('save');
+
+  try {
+    if (!code.value.trim()) {
+      status.textContent = 'Não há um site para salvar.';
+      return;
+    }
+
+    localStorage.setItem(KEY, code.value);
+
+    botao.textContent = '✓ Salvo neste navegador';
+    status.textContent = 'Projeto salvo com sucesso neste navegador.';
+
+  } catch (erro) {
+    console.error('Erro ao salvar projeto:', erro);
+
+    botao.textContent = 'Erro ao salvar';
+    status.textContent = 'Não foi possível salvar. Use Baixar HTML.';
+  }
+});
+
   document.getElementById('download').addEventListener('click', () => {
     if (!code.value.trim()) { status.textContent = 'Não há código para baixar.'; return; }
     const blob = new Blob([code.value], {type:'text/html;charset=utf-8'});

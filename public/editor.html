@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Editor de Sites — Thiago IA</title>
+  <link rel="stylesheet" href="editor.css">
+  <script defer src="js/editor.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">✦ Thiago<span>IA</span></a>
+    <span class="project-name">Editor de sites <small>· protótipo local</small></span>
+    <div class="actions">
+      <button id="save" type="button">Salvar neste navegador</button>
+      <button id="download" type="button" class="primary">Baixar HTML</button>
+    </div>
+  </header>
+  <main class="workspace">
+    <section class="editor-panel" aria-label="Código HTML do projeto">
+      <div class="panel-title"><strong>Código HTML</strong><span>Altere o código e clique em Atualizar prévia</span></div>
+      <label class="sr-only" for="code">Código do site</label>
+      <textarea id="code" spellcheck="false" placeholder="Gere um site na página inicial e clique em Editar site, ou cole seu HTML aqui."></textarea>
+      <div class="panel-footer">
+        <button id="refresh" type="button" class="primary">Atualizar prévia</button>
+        <span id="status" role="status" aria-live="polite"></span>
+      </div>
+    </section>
+    <section class="preview-panel" aria-label="Pré-visualização do site">
+      <div class="panel-title"><strong>Pré-visualização</strong><span>Scripts desativados por segurança</span></div>
+      <iframe id="preview" title="Pré-visualização do HTML" sandbox="" referrerpolicy="no-referrer"></iframe>
+    </section>
+  </main>
+</body>
+</html>

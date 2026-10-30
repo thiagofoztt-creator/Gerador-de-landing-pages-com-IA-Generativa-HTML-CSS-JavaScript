@@ -1,5 +1,4 @@
 
-
 {
   "name": "gerador-de-landing-pages-com-ia",
   "keep_vars": true,
@@ -37,27 +36,26 @@
       "type": "durable-object",
       "storage": "sqlite"
     }
-  }
-},
+  },
 
-"previews": {
-  "ratelimits": [
-    {
-      "name": "LIMITE_GERACAO",
-      "namespace_id": "2002",
-      "simple": {
-        "limit": 20,
-        "period": 60
-      }
-    }
-  ],
-  "durable_objects": {
-    "bindings": [
+  "previews": {
+    "ratelimits": [
       {
-        "name": "COTA_DIARIA",
-        "class_name": "CotaDiaria"
+        "name": "LIMITE_GERACAO",
+        "namespace_id": "2002",
+        "simple": {
+          "limit": 20,
+          "period": 60
+        }
       }
-    ]
+    ],
+    "durable_objects": {
+      "bindings": [
+        {
+          "name": "COTA_DIARIA",
+          "class_name": "CotaDiaria"
+        }
+      ]
+    }
   }
 }
-

@@ -10,13 +10,33 @@
 <body>
   <header class="topbar">
     <a class="brand" href="/">✦ Thiago<span>IA</span></a>
-    <span class="project-name">Editor de sites <small>· protótipo local</small></span>
+    <span class="project-name">Editor visual <small>· V2 local, sem publicação</small></span>
     <div class="actions">
       <button id="save" type="button">Salvar neste navegador</button>
       <button id="download" type="button" class="primary">Baixar HTML</button>
     </div>
   </header>
-  <main class="workspace">
+  <main class="workspace v2-workspace">
+    <aside class="visual-panel" aria-label="Ferramentas visuais">
+      <div class="panel-title"><strong>Personalizar</strong><span>V2</span></div>
+      <div class="visual-content">
+        <label for="element-choice">Texto do site</label>
+        <select id="element-choice" aria-label="Selecione um texto para editar"></select>
+        <label for="element-text">Novo texto</label>
+        <textarea id="element-text" class="visual-text" rows="4" placeholder="Selecione um título, parágrafo ou botão"></textarea>
+        <button id="apply-text" type="button" class="primary">Aplicar texto</button>
+        <hr>
+        <label for="color-primary">Cor principal (títulos e botões)</label>
+        <input type="color" id="color-primary" value="#7c3aed">
+        <label for="color-background">Fundo da página</label>
+        <input type="color" id="color-background" value="#ffffff">
+        <button id="apply-colors" type="button">Aplicar cores</button>
+        <p class="visual-note">As cores criam regras CSS adicionais. Alguns estilos existentes da página podem ter prioridade.</p>
+        <hr>
+        <button id="mode-code" type="button" aria-pressed="false">Mostrar/ocultar HTML</button>
+        <p class="visual-note">A prévia continua isolada: scripts gerados pela IA não são executados.</p>
+      </div>
+    </aside>
     <section class="editor-panel" aria-label="Código HTML do projeto">
       <div class="panel-title"><strong>Código HTML</strong><span>Altere o código e clique em Atualizar prévia</span></div>
       <label class="sr-only" for="code">Código do site</label>
@@ -27,8 +47,8 @@
       </div>
     </section>
     <section class="preview-panel" aria-label="Pré-visualização do site">
-      <div class="panel-title"><strong>Pré-visualização</strong><span>Scripts desativados por segurança</span></div>
-      <iframe id="preview" title="Pré-visualização do HTML" sandbox="" referrerpolicy="no-referrer"></iframe>
+      <div class="panel-title"><strong>Pré-visualização</strong><span class="device-controls"><button type="button" data-device="desktop" aria-pressed="true">Desktop</button><button type="button" data-device="tablet" aria-pressed="false">Tablet</button><button type="button" data-device="mobile" aria-pressed="false">Celular</button></span></div>
+      <div class="preview-stage"><iframe id="preview" title="Pré-visualização do HTML" sandbox="" referrerpolicy="no-referrer"></iframe></div>
     </section>
   </main>
 </body>

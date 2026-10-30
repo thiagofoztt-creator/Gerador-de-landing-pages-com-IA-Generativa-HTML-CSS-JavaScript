@@ -4,6 +4,15 @@
 
 Projeto Full Stack desenvolvido para transformar descrições em linguagem natural em páginas HTML e CSS, com geração por inteligência artificial, prévia visual no navegador e mecanismos de segurança para controlar o consumo da API.
 
+## Desenvolvimento — Versão 2.0
+
+Nova interface do Gerador de Sites com IA.
+
+- Interface visual roxa neon.
+- Gemini como IA principal.
+- GPT planejado como segunda opção.
+- Editor visual em desenvolvimento.
+- Ambiente de testes separado da produção.
 ### 🌐 Demonstração online
 
 **[Acessar o Gerador de Landing Pages com IA](https://gerador-de-landing-pages-com-ia.thiagofoztt.workers.dev/)**

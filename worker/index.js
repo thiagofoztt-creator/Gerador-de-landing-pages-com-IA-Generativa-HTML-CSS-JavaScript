@@ -1,4 +1,9 @@
 import { DurableObject } from "cloudflare:workers";
+
+import { registerUser } from "./auth/register.js";
+import { checkAuthRateLimit } from "./auth/rate-limit.js";
+import { validateAuthTurnstile } from "./auth/turnstile.js";
+
 const MODELO = "gemini-2.5-flash";
 
 const GEMINI_URL =
@@ -18,6 +23,77 @@ function json(dados, status = 200) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+    
+    // Cadastro ThiagoIA: bloqueado até validação final
+    if (url.pathname === "/api/auth/register") {
+      if (request.method !== "POST") {
+        return json({ erro: "Método não permitido." }, 405);
+      }
+
+      if (env.ENABLE_AUTH_REGISTRATION !== "true") {
+        return json({
+          erro: "Cadastro ainda não disponível."
+        }, 503);
+      }
+
+      if (!env.DB) {
+        return json({ erro: "Banco indisponível." }, 503);
+      }
+
+      const origin = request.headers.get("Origin");
+
+      if (origin !== url.origin) {
+        return json({ erro: "Origem não autorizada." }, 403);
+      }
+
+      const limit = await checkAuthRateLimit(
+        request, env, "register"
+      );
+
+      if (!limit.allowed) {
+        return json({ erro: limit.error }, limit.status);
+      }
+
+      const type = request.headers.get("content-type") || "";
+
+      if (!type.toLowerCase().includes("application/json")) {
+        return json({ erro: "JSON obrigatório." }, 415);
+      }
+
+      const bodyText = await request.text();
+
+      if (bodyText.length > 4096) {
+        return json({ erro: "Requisição muito grande." }, 413);
+      }
+
+      let body;
+
+      try {
+        body = JSON.parse(bodyText);
+      } catch {
+        return json({ erro: "JSON inválido." }, 400);
+      }
+
+      const validTurnstile = await validateAuthTurnstile(
+        request, env, body?.turnstileToken, "register"
+      );
+
+      if (!validTurnstile) {
+        return json({
+          erro: "Verificação de segurança inválida."
+        }, 403);
+      }
+
+      const result = await registerUser(env.DB, body);
+
+      return json(
+        result.user
+          ? { usuario: result.user }
+          : { erro: result.error },
+        result.status
+      );
+    }
+
 
     
     // Diagnóstico temporário do banco D1 — Preview

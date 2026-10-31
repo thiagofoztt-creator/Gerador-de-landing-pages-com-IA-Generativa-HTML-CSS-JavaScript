@@ -52,17 +52,26 @@
   }
 ],
 
-  "ratelimits": [
+ 
+"ratelimits": [
+  {
+    "name": "LIMITE_GERACAO",
+    "namespace_id": "2002",
+    "simple": {
+      "limit": 20,
+      "period": 60
+    }
+  },
+  {
+    "name": "AUTH_RATE_LIMIT",
+    "namespace_id": "2003",
+    "simple": {
+      "limit": 5,
+      "period": 60
+    }
+  }
+]
 
-      {
-        "name": "LIMITE_GERACAO",
-        "namespace_id": "2002",
-        "simple": {
-          "limit": 20,
-          "period": 60
-        }
-      }
-    ],
     "durable_objects": {
       "bindings": [
         {

@@ -19,6 +19,32 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    
+    // Diagnóstico temporário do banco D1 — Preview
+    if (url.pathname === "/api/dev/db-health") {
+      if (request.method !== "GET") {
+        return json({ erro: "Método não permitido." }, 405);
+      }
+
+      if (!env.DB) {
+        return json({ conectado: false, erro: "D1 não configurado." }, 503);
+      }
+
+      try {
+        const resultado = await env.DB
+          .prepare("SELECT 1 AS conectado")
+          .first();
+
+        return json({
+          conectado: resultado?.conectado === 1
+        });
+      } catch (erro) {
+        console.error("Falha ao consultar D1:", erro);
+        return json({ conectado: false }, 503);
+      }
+    }
+
+
     // Permitir somente POST /gerar
     if (url.pathname !== "/gerar") {
       return json({ erro: "Rota não encontrada." }, 404);

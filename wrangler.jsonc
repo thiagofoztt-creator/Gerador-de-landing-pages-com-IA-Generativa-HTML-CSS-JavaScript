@@ -8,7 +8,7 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/gerar"]
+    "run_worker_first": ["/gerar", "/api/dev/db-health"]
   },
 
   "ratelimits": [

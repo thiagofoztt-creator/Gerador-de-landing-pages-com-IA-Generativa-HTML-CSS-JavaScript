@@ -24,28 +24,14 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     
-     // 1. Rota de cadastro
-  if (url.pathname === "/api/auth/register") {
-    // Código de cadastro protegido
-  }
-
-  // 2. Rota de diagnóstico D1
-  if (url.pathname === "/api/dev/db-health") {
-    // Código de diagnóstico
-  }
-
-  // 3. Bloqueio das rotas desconhecidas
-  if (url.pathname !== "/gerar") {
-    return json({ erro: "Rota não encontrada." }, 404);
-  }
-
-  // 4. Geração com Gemini
-}
+    // Cadastro de usuários — desativado por padrão
+    if (url.pathname === "/api/auth/register") {
+      if (request.method !== "POST") {
+        return json({ erro: "Método não permitido." }, 405);
+      }
 
       if (env.ENABLE_AUTH_REGISTRATION !== "true") {
-        return json({
-          erro: "Cadastro ainda não disponível."
-        }, 503);
+        return json({ erro: "Cadastro ainda não disponível." }, 503);
       }
 
       if (!env.DB) {
@@ -53,13 +39,14 @@ export default {
       }
 
       const origin = request.headers.get("Origin");
-
       if (origin !== url.origin) {
         return json({ erro: "Origem não autorizada." }, 403);
       }
 
       const limit = await checkAuthRateLimit(
-        request, env, "register"
+        request,
+        env,
+        "register"
       );
 
       if (!limit.allowed) {
@@ -67,9 +54,16 @@ export default {
       }
 
       const type = request.headers.get("content-type") || "";
-
       if (!type.toLowerCase().includes("application/json")) {
         return json({ erro: "JSON obrigatório." }, 415);
+      }
+
+      const length = Number(
+        request.headers.get("content-length") || 0
+      );
+
+      if (length > 4096) {
+        return json({ erro: "Requisição muito grande." }, 413);
       }
 
       const bodyText = await request.text();
@@ -79,7 +73,6 @@ export default {
       }
 
       let body;
-
       try {
         body = JSON.parse(bodyText);
       } catch {
@@ -87,7 +80,10 @@ export default {
       }
 
       const validTurnstile = await validateAuthTurnstile(
-        request, env, body?.turnstileToken, "register"
+        request,
+        env,
+        body?.turnstileToken,
+        "register"
       );
 
       if (!validTurnstile) {
@@ -105,6 +101,7 @@ export default {
         result.status
       );
     }
+
 
 
     

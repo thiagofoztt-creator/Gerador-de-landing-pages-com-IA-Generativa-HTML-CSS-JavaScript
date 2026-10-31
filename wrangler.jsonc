@@ -43,6 +43,15 @@
   "vars": {
     "ENABLE_GENERATION": "true"
   },
+
+"d1_databases": [
+  {
+    "binding": "DB",
+    "database_name": "thiagoia-dev",
+    "database_id": "0b97d5c8-384c-4a08-b058-843323ee729f"
+  }
+],
+
   "ratelimits": [
 
       {

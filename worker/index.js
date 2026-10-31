@@ -24,11 +24,23 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     
-    // Cadastro ThiagoIA: bloqueado até validação final
-    if (url.pathname === "/api/auth/register") {
-      if (request.method !== "POST") {
-        return json({ erro: "Método não permitido." }, 405);
-      }
+     // 1. Rota de cadastro
+  if (url.pathname === "/api/auth/register") {
+    // Código de cadastro protegido
+  }
+
+  // 2. Rota de diagnóstico D1
+  if (url.pathname === "/api/dev/db-health") {
+    // Código de diagnóstico
+  }
+
+  // 3. Bloqueio das rotas desconhecidas
+  if (url.pathname !== "/gerar") {
+    return json({ erro: "Rota não encontrada." }, 404);
+  }
+
+  // 4. Geração com Gemini
+}
 
       if (env.ENABLE_AUTH_REGISTRATION !== "true") {
         return json({

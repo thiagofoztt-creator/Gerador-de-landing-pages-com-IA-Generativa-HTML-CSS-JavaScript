@@ -46,10 +46,13 @@
       "storage": "sqlite"
     }
   },
-  "previews": {
-    "vars": {
-      "ENABLE_GENERATION": "true"
-    },
+  
+"previews": {
+  "vars": {
+    "ENABLE_GENERATION": "true",
+    "ENABLE_AUTH_REGISTRATION": "true"
+  },
+
     "d1_databases": [
       {
         "binding": "DB",

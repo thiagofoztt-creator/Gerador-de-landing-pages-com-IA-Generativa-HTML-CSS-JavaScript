@@ -48,3 +48,24 @@ jobs:
 
           echo "POST HTTP: $STATUS"
           test "$STATUS" = "403"
+          
+      - name: Testar POST com formato invalido
+        shell: bash
+        run: |
+          BASE="https://desenvolvimento-sites-v2-gerador-de-landing-pages-com-ia.thiagofoztt.workers.dev"
+          URL="$BASE/api/auth/login"
+
+          STATUS=$(curl -sS -o resposta.json \
+            -w "%{http_code}" \
+            --max-time 20 \
+            -X POST \
+            -H "Origin: $BASE" \
+            -H "Content-Type: text/plain" \
+            --data '{}' \
+            "$URL")
+
+          echo "POST HTTP: $STATUS"
+          cat resposta.json
+
+          test "$STATUS" = "415"
+

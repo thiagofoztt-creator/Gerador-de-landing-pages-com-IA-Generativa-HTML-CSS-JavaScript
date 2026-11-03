@@ -175,4 +175,31 @@ jobs:
           grep -q "Sessão não autenticada" resposta-logout-sem-sessao.json
           grep -qi "^set-cookie:" cabecalhos-logout.txt
 
+          
+      - name: Testar logout com token inexistente
+        shell: bash
+        run: |
+          BASE="https://desenvolvimento-sites-v2-gerador-de-landing-pages-com-ia.thiagofoztt.workers.dev"
+
+          TOKEN=$(printf 'a%.0s' {1..64})
+
+          STATUS=$(curl -sS \
+            -D cabecalhos-token.txt \
+            -o resposta-token.json \
+            -w "%{http_code}" \
+            --max-time 20 \
+            -X POST \
+            -H "Origin: $BASE" \
+            -H "Cookie: __Host-thiagoia_session=$TOKEN" \
+            "$BASE/api/auth/logout")
+
+          echo "HTTP: $STATUS"
+          cat resposta-token.json
+
+          test "$STATUS" = "401"
+          grep -q "Sessão inválida ou expirada" resposta-token.json
+          grep -qi "^set-cookie:" cabecalhos-token.txt
+          grep -qi "max-age=0" cabecalhos-token.txt
+
+
 

@@ -8,6 +8,7 @@ on:
     paths:
       - "tests/fixtures/auth_schema.sql"
       - "tests/wrangler.d1-test.jsonc"
+      - "tests/fixtures/auth_sessions_test.sql"
       - ".github/workflows/test-auth-d1.yml"
 
   workflow_dispatch:
@@ -83,3 +84,52 @@ jobs:
 
           console.log("D1 local: estrutura validada.");
           NODE
+
+          
+      - name: Executar teste de sessoes no D1 local
+        run: |
+          npx wrangler d1 execute auth-ci-local \
+            --config tests/wrangler.d1-test.jsonc \
+            --local \
+            --persist-to .wrangler/auth-ci \
+            --file tests/fixtures/auth_sessions_test.sql
+
+      - name: Validar revogacao isolada e integridade
+        run: |
+          npx wrangler d1 execute auth-ci-local \
+            --config tests/wrangler.d1-test.jsonc \
+            --local \
+            --persist-to .wrangler/auth-ci \
+            --command "SELECT
+              (SELECT COUNT(*) FROM users WHERE id = 'usuario-ci-001') AS usuarios,
+              (SELECT COUNT(*) FROM user_sessions WHERE user_id = 'usuario-ci-001') AS sessoes,
+              (SELECT COUNT(*) FROM user_sessions WHERE id = 'sessao-ci-A' AND revoked_at IS NOT NULL) AS revogadas,
+              (SELECT COUNT(*) FROM user_sessions WHERE id = 'sessao-ci-B' AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP) AS ativas,
+              (SELECT COUNT(*) FROM pragma_foreign_key_check) AS violacoes;" \
+            --json > resultado-sessoes.json
+
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import assert from "node:assert/strict";
+
+          const data = JSON.parse(
+            fs.readFileSync("resultado-sessoes.json", "utf8")
+          );
+
+          const linhas = data.flatMap(
+            item => item.results ?? []
+          );
+
+          assert.equal(linhas.length, 1);
+
+          const resultado = linhas[0];
+
+          assert.equal(resultado.usuarios, 1);
+          assert.equal(resultado.sessoes, 2);
+          assert.equal(resultado.revogadas, 1);
+          assert.equal(resultado.ativas, 1);
+          assert.equal(resultado.violacoes, 0);
+
+          console.log("D1 local: revogacao isolada aprovada.");
+          NODE
+

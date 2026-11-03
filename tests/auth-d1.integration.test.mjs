@@ -39,18 +39,28 @@ describe("Integracao real com D1 isolado", () => {
       .map(comando => comando.trim())
       .filter(Boolean);
 
-    // Executar cada instrucao no D1 isolado.
+    
+    // Executar cada instrucao SQL no D1 isolado.
     for (const comando of comandos) {
+      const sql = comando.trim();
+
+      if (!sql) {
+        continue;
+      }
+
       try {
-        await db.exec(comando + ";");
+        await db.prepare(sql).run();
       } catch (error) {
         console.error(
-          "Falha ao executar SQL:",
-          comando.slice(0, 200)
+          "Falha na instrucao SQL:",
+          sql.slice(0, 300)
         );
+
+        console.error("Detalhes:", error.message);
         throw error;
       }
     }
+
 
 
 

@@ -248,6 +248,37 @@ describe("Integracao real com D1 isolado", () => {
 
     expect(corpoAposLogout.autenticado).not.toBe(true);
 
+    
+    // 13. Simular expiracao da sessao B no D1.
+    await db.prepare(`
+      UPDATE user_sessions
+      SET expires_at = ?
+      WHERE id = ?
+    `).bind(
+      "2000-01-01T00:00:00.000Z",
+      sessaoB.id
+    ).run();
 
+    // 14. Confirmar que o token expirado e rejeitado.
+    const sessaoExpirada = await getSession(db, tokenB);
+
+    expect(sessaoExpirada).toBeNull();
+
+    // 15. Confirmar bloqueio HTTP em /api/auth/me.
+    const respostaExpirada = await worker.fetch(
+      new Request(`${origem}/api/auth/me`, {
+        method: "GET",
+        headers: {
+          Cookie: cookieB
+        }
+      }),
+      { DB: db }
+    );
+
+    expect(respostaExpirada.status).toBe(401);
+
+    const corpoExpirado = await respostaExpirada.json();
+
+    expect(corpoExpirado.autenticado).not.toBe(true);
   });
 });

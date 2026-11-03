@@ -62,6 +62,43 @@ describe("Protecao de origem da rota /gerar", () => {
     expect(resposta.status).toBe(415);
     expect(await resposta.json()).toEqual({
       erro: "Envie um JSON válido."
+      
+  it("bloqueia geracao sem token Turnstile", async () => {
+    let chamadasLimite = 0;
+
+    const env = {
+      ...ambienteTeste(),
+      LIMITE_GERACAO: {
+        limit: async () => {
+          chamadasLimite++;
+          return { success: true };
+        }
+      }
+    };
+
+    const resposta = await worker.fetch(
+      new Request(`${origem}/gerar`, {
+        method: "POST",
+        headers: {
+          Origin: origem,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          descricao: "Criar uma landing page de tecnologia"
+        })
+      }),
+      env
+    );
+
+    expect(resposta.status).toBe(403);
+
+    expect(await resposta.json()).toEqual({
+      erro: "Verificação de segurança obrigatória."
+    });
+
+    expect(chamadasLimite).toBe(1);
+  });
+
     });
   });
 });

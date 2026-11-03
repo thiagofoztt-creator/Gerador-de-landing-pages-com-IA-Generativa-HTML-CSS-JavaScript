@@ -1,0 +1,85 @@
+
+name: Testes D1 Isolado - Autenticacao
+
+on:
+  push:
+    branches:
+      - desenvolvimento-sites-v2
+    paths:
+      - "tests/fixtures/auth_schema.sql"
+      - "tests/wrangler.d1-test.jsonc"
+      - ".github/workflows/test-auth-d1.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testar-d1:
+    name: Validar estrutura D1 local
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Configurar Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Instalar dependencias
+        run: bun install --frozen-lockfile
+
+      - name: Criar banco D1 local
+        run: |
+          mkdir -p .wrangler/auth-ci
+
+          npx wrangler d1 execute auth-ci-local \
+            --config tests/wrangler.d1-test.jsonc \
+            --local \
+            --persist-to .wrangler/auth-ci \
+            --file tests/fixtures/auth_schema.sql
+
+      - name: Verificar tabelas e indice
+        run: |
+          npx wrangler d1 execute auth-ci-local \
+            --config tests/wrangler.d1-test.jsonc \
+            --local \
+            --persist-to .wrangler/auth-ci \
+            --command "SELECT name, type FROM sqlite_master WHERE name IN ('users', 'user_credentials', 'user_sessions', 'idx_sessions_user') ORDER BY name;" \
+            --json > resultado-d1.json
+
+          node --input-type=module <<'NODE'
+          import fs from "node:fs";
+          import assert from "node:assert/strict";
+
+          const data = JSON.parse(
+            fs.readFileSync("resultado-d1.json", "utf8")
+          );
+
+          const linhas = data.flatMap(
+            item => item.results ?? []
+          );
+
+          const encontrados = new Map(
+            linhas.map(item => [item.name, item.type])
+          );
+
+          const esperados = new Map([
+            ["users", "table"],
+            ["user_credentials", "table"],
+            ["user_sessions", "table"],
+            ["idx_sessions_user", "index"]
+          ]);
+
+          assert.deepEqual(encontrados, esperados);
+
+          console.log("D1 local: estrutura validada.");
+          NODE

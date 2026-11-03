@@ -280,5 +280,60 @@ describe("Integracao real com D1 isolado", () => {
     const corpoExpirado = await respostaExpirada.json();
 
     expect(corpoExpirado.autenticado).not.toBe(true);
+
+    
+    // Testar isolamento entre dois usuarios.
+    const emailOutro = "outro-usuario@example.com";
+    const senhaOutro = "SenhaOutroUsuario2026!";
+
+    const cadastroOutro = await registerUser(db, {
+      name: "Outro Usuario",
+      email: emailOutro,
+      password: senhaOutro
+    });
+
+    expect(cadastroOutro.status).toBe(201);
+    expect(cadastroOutro.user.id).not.toBe(cadastro.user.id);
+
+    const loginOutro = await loginUser(db, {
+      email: emailOutro,
+      password: senhaOutro
+    });
+
+    expect(loginOutro.status).toBe(200);
+
+    const cookieOutro = loginOutro.cookie.split(";")[0];
+
+    const respostaOutro = await worker.fetch(
+      new Request(`${origem}/api/auth/me`, {
+        method: "GET",
+        headers: {
+          Cookie: cookieOutro
+        }
+      }),
+      { DB: db }
+    );
+
+    expect(respostaOutro.status).toBe(200);
+
+    const dadosOutro = await respostaOutro.json();
+
+    expect(dadosOutro.autenticado).toBe(true);
+    expect(dadosOutro.usuario.id).toBe(
+      cadastroOutro.user.id
+    );
+    expect(dadosOutro.usuario.email).toBe(emailOutro);
+
+    // O usuario B nao pode receber dados do usuario A.
+    expect(dadosOutro.usuario.id).not.toBe(
+      cadastro.user.id
+    );
+    expect(dadosOutro.usuario.email).not.toBe(email);
+
+    // Verificar que nenhum dado de senha foi exposto.
+    expect(dadosOutro.usuario).not.toHaveProperty(
+      "password_hash"
+    );
+
   });
 });

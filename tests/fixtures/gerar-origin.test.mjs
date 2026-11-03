@@ -373,6 +373,95 @@ describe("Protecao de origem da rota /gerar", () => {
 
     expect(chamadasLimite).toBe(1);
   });
+    
+  it("bloqueia geracao quando a cota diaria acaba", async () => {
+    const fetchOriginal = globalThis.fetch;
+
+    const fetchSimulado = vi.fn(async (url) => {
+      if (
+        url ===
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+      ) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            hostname: "preview.example"
+          }),
+          {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json"
+            }
+          }
+        );
+      }
+
+      throw new Error("Chamada externa inesperada");
+    });
+
+    globalThis.fetch = fetchSimulado;
+
+    let chamadasReserva = 0;
+
+    try {
+      const env = {
+        ...ambienteTeste(),
+        TURNSTILE_SECRET_KEY: "segredo-ficticio",
+        LIMITE_GERACAO: {
+          limit: async () => ({ success: true })
+        },
+        COTA_DIARIA: {
+          getByName: (name) => {
+            expect(name).toBe("gerador-global");
+
+            return {
+              reservar: async () => {
+                chamadasReserva++;
+
+                return {
+                  permitido: false,
+                  utilizadas: 50,
+                  limite: 50
+                };
+              }
+            };
+          }
+        }
+      };
+
+      const resposta = await worker.fetch(
+        new Request(`${origem}/gerar`, {
+          method: "POST",
+          headers: {
+            Origin: origem,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            descricao: "Criar uma landing page de tecnologia",
+            turnstileToken: "token-ficticio"
+          })
+        }),
+        env
+      );
+
+      expect(resposta.status).toBe(429);
+
+      expect(await resposta.json()).toEqual({
+        erro: "Limite diário de 50 gerações atingido."
+      });
+
+      expect(chamadasReserva).toBe(1);
+
+      // Apenas Turnstile; nenhuma chamada ao Gemini.
+      expect(fetchSimulado).toHaveBeenCalledTimes(1);
+      expect(fetchSimulado.mock.calls[0][0]).toBe(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+      );
+    } finally {
+      globalThis.fetch = fetchOriginal;
+      vi.restoreAllMocks();
+    }
+  });
 
   });
 });

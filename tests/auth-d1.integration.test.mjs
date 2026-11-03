@@ -199,6 +199,41 @@ describe("Integracao real com D1 isolado", () => {
     expect(sessaoB.user_id).toBe(cadastro.user.id);
     expect(sessaoB.id).not.toBe(sessao.id);
 
+    
+    // CSRF: bloquear logout iniciado por outro site.
+    const origemPermitida = "https://auth-test.example";
+
+    const respostaOrigemExterna = await worker.fetch(
+      new Request(`${origemPermitida}/api/auth/logout`, {
+        method: "POST",
+        headers: {
+          Origin: "https://site-externo.example",
+          Cookie: cookieB
+        }
+      }),
+      { DB: db }
+    );
+
+    expect(respostaOrigemExterna.status).toBe(403);
+
+    // Bloquear tambem a ausencia do cabecalho Origin.
+    const respostaSemOrigem = await worker.fetch(
+      new Request(`${origemPermitida}/api/auth/logout`, {
+        method: "POST",
+        headers: {
+          Cookie: cookieB
+        }
+      }),
+      { DB: db }
+    );
+
+    expect(respostaSemOrigem.status).toBe(403);
+
+    // Tentativas bloqueadas nao podem revogar a sessao.
+    const sessaoBaposCSRF = await getSession(db, tokenB);
+
+    expect(sessaoBaposCSRF).not.toBeNull();
+    expect(sessaoBaposCSRF.id).toBe(sessaoB.id);
 
     // 8. Executar logout pelo handler HTTP.
     const origem = "https://auth-test.example";

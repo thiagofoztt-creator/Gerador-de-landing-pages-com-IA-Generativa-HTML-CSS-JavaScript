@@ -220,5 +220,68 @@ describe("Protecao de origem da rota /gerar", () => {
       vi.restoreAllMocks();
     }
   });
+    
+  it("bloqueia geracao quando Turnstile esta indisponivel", async () => {
+    const fetchOriginal = globalThis.fetch;
+
+    const fetchSimulado = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          erro: "Servico temporariamente indisponivel"
+        }),
+        {
+          status: 503,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }
+      );
+    });
+
+    globalThis.fetch = fetchSimulado;
+
+    try {
+      const env = {
+        ...ambienteTeste(),
+        TURNSTILE_SECRET_KEY: "segredo-ficticio",
+        LIMITE_GERACAO: {
+          limit: async () => ({ success: true })
+        }
+      };
+
+      const resposta = await worker.fetch(
+        new Request(`${origem}/gerar`, {
+          method: "POST",
+          headers: {
+            Origin: origem,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            descricao: "Criar uma landing page de tecnologia",
+            turnstileToken: "token-ficticio"
+          })
+        }),
+        env
+      );
+
+      expect(resposta.status).toBe(502);
+
+      expect(await resposta.json()).toEqual({
+        erro: "Não foi possível verificar o Turnstile."
+      });
+
+      // Somente a tentativa de verificar o Turnstile.
+      // Nenhuma requisicao ao Gemini deve acontecer.
+      expect(fetchSimulado).toHaveBeenCalledTimes(1);
+
+      expect(fetchSimulado.mock.calls[0][0]).toBe(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+      );
+    } finally {
+      globalThis.fetch = fetchOriginal;
+      vi.restoreAllMocks();
+    }
+  });
+
   });
 });

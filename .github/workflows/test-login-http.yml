@@ -129,3 +129,25 @@ jobs:
 
           test "$STATUS" = "503"
           grep -q "Cadastro ainda não disponível" resposta-cadastro.json
+
+          
+      - name: Testar logout com origem invalida
+        shell: bash
+        run: |
+          BASE="https://desenvolvimento-sites-v2-gerador-de-landing-pages-com-ia.thiagofoztt.workers.dev"
+
+          STATUS=$(curl -sS -o resposta-logout.json \
+            -w "%{http_code}" \
+            --max-time 20 \
+            -X POST \
+            -H "Origin: https://origem-invalida.example" \
+            -H "Content-Type: application/json" \
+            --data '{}' \
+            "$BASE/api/auth/logout")
+
+          echo "HTTP: $STATUS"
+          cat resposta-logout.json
+
+          test "$STATUS" = "403"
+          grep -q "Origem não autorizada" resposta-logout.json
+

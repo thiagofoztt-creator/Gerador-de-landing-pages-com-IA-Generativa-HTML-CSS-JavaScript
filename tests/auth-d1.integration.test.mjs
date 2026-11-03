@@ -80,41 +80,20 @@ describe("Integracao real com D1 isolado", () => {
     expect(login.status).toBe(200);
     
     // Validar os atributos de seguranca do cookie.
-    const cookieSeguro = login.cookie;
-
-    expect(cookieSeguro).toContain(
-      "__Host-thiagoia_session="
-    );
-
-    expect(cookieSeguro).toContain("HttpOnly");
-    expect(cookieSeguro).toContain("Secure");
-    expect(cookieSeguro).toContain("SameSite=Lax");
-    expect(cookieSeguro).toContain("Path=/");
-    expect(cookieSeguro).toContain("Max-Age=86400");
-
-    // Cookies __Host- nao podem definir Domain.
-    expect(cookieSeguro).not.toMatch(
-      /(?:^|;)\s*Domain=/i
-    );
-
     
-    // Validar os atributos de seguranca do cookie.
-    const cookieSeguro = login.cookie;
+const cookieSeguro = login.cookie;
 
-    expect(cookieSeguro).toContain(
-      "__Host-thiagoia_session="
-    );
+expect(cookieSeguro).toContain("__Host-thiagoia_session=");
+expect(cookieSeguro).toContain("HttpOnly");
+expect(cookieSeguro).toContain("Secure");
+expect(cookieSeguro).toContain("SameSite=Lax");
+expect(cookieSeguro).toContain("Path=/");
+expect(cookieSeguro).toContain("Max-Age=86400");
 
-    expect(cookieSeguro).toContain("HttpOnly");
-    expect(cookieSeguro).toContain("Secure");
-    expect(cookieSeguro).toContain("SameSite=Lax");
-    expect(cookieSeguro).toContain("Path=/");
-    expect(cookieSeguro).toContain("Max-Age=86400");
+expect(cookieSeguro).not.toMatch(
+  /(?:^|;)\s*Domain=/i
+);
 
-    // Cookies __Host- nao podem definir Domain.
-    expect(cookieSeguro).not.toMatch(
-      /(?:^|;)\s*Domain=/i
-    );
 
     expect(login.user.id).toBe(cadastro.user.id);
 

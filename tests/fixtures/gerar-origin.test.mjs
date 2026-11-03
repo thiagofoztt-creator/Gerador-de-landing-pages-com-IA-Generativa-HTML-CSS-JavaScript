@@ -1,5 +1,5 @@
+import { describe, it, expect, vi } from "vitest";
 
-import { describe, it, expect } from "vitest";
 import worker from "../worker/index.js";
 
 const origem = "https://preview.example";
@@ -97,6 +97,67 @@ describe("Protecao de origem da rota /gerar", () => {
     });
 
     expect(chamadasLimite).toBe(1);
+  });
+    
+  it("bloqueia token Turnstile invalido", async () => {
+    const fetchOriginal = globalThis.fetch;
+
+    const fetchSimulado = vi.fn(async () => {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          hostname: "preview.example"
+        }),
+        {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json"
+          }
+        }
+      );
+    });
+
+    globalThis.fetch = fetchSimulado;
+
+    try {
+      const env = {
+        ...ambienteTeste(),
+        TURNSTILE_SECRET_KEY: "segredo-ficticio",
+        LIMITE_GERACAO: {
+          limit: async () => ({ success: true })
+        }
+      };
+
+      const resposta = await worker.fetch(
+        new Request(`${origem}/gerar`, {
+          method: "POST",
+          headers: {
+            Origin: origem,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            descricao: "Criar um site de tecnologia",
+            turnstileToken: "token-invalido-ficticio"
+          })
+        }),
+        env
+      );
+
+      expect(resposta.status).toBe(403);
+
+      expect(await resposta.json()).toEqual({
+        erro: "Verificação de segurança inválida ou expirada."
+      });
+
+      expect(fetchSimulado).toHaveBeenCalledTimes(1);
+
+      expect(fetchSimulado.mock.calls[0][0]).toBe(
+        "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+      );
+    } finally {
+      globalThis.fetch = fetchOriginal;
+      vi.restoreAllMocks();
+    }
   });
 
     });

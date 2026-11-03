@@ -50,7 +50,7 @@
 "previews": {
   "vars": {
     "ENABLE_GENERATION": "true",
-    "ENABLE_AUTH_REGISTRATION": "true"
+    "ENABLE_AUTH_REGISTRATION": "false"
   },
 
     "d1_databases": [

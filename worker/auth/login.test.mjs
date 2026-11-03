@@ -171,24 +171,3 @@ test("Rate limit indisponivel impede login", async () => {
   assert.equal(resultado.allowed, false);
   assert.equal(resultado.status, 503);
 });
-
-      - name: Verificar cadastro habilitado no Preview
-        shell: bash
-        run: |
-          BASE="https://desenvolvimento-sites-v2-gerador-de-landing-pages-com-ia.thiagofoztt.workers.dev"
-
-          STATUS=$(curl -sS -o resposta-cadastro.json \
-            -w "%{http_code}" \
-            --max-time 20 \
-            -X POST \
-            -H "Origin: https://origem-invalida.example" \
-            -H "Content-Type: application/json" \
-            --data '{}' \
-            "$BASE/api/auth/register")
-
-          echo "HTTP: $STATUS"
-          cat resposta-cadastro.json
-
-          test "$STATUS" = "403"
-          grep -q "Origem não autorizada" resposta-cadastro.json
-

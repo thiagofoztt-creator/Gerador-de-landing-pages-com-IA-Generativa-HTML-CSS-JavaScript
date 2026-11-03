@@ -1,6 +1,7 @@
 
 import { describe, it, expect } from "vitest";
 import { env } from "cloudflare:test";
+import worker from "../worker/index.js";
 
 import schema from "./fixtures/auth_schema.sql?raw";
 
@@ -112,11 +113,66 @@ describe("Integracao real com D1 isolado", () => {
     expect(sessao).not.toBeNull();
     expect(sessao.user_id).toBe(cadastro.user.id);
 
-    // 8. Revogar sessao
-    const revogada = await revokeSession(
-      db,
-      sessao.id
+    
+    // 8. Executar logout pelo handler HTTP real
+    const origem = "https://auth-test.example";
+
+    const respostaLogout = await worker.fetch(
+      new Request(`${origem}/api/auth/logout`, {
+        method: "POST",
+        headers: {
+          Origin: origem,
+          Cookie: login.cookie.split(";")[0]
+        }
+      }),
+      { DB: db }
     );
+
+    expect(respostaLogout.status).toBe(200);
+
+    const corpoLogout = await respostaLogout.json();
+
+    expect(corpoLogout.mensagem).toBe(
+      "Sessão encerrada com sucesso."
+    );
+
+    // 9. Confirmar limpeza do cookie
+    const cookieLimpo = respostaLogout.headers.get(
+      "Set-Cookie"
+    );
+
+    expect(cookieLimpo).toContain("Max-Age=0");
+    expect(cookieLimpo).toContain("HttpOnly");
+    expect(cookieLimpo).toContain("Secure");
+
+    // 10. Confirmar revogacao no D1
+    const registro = await db.prepare(`
+      SELECT revoked_at
+      FROM user_sessions
+      WHERE id = ?
+    `).bind(sessao.id).first();
+
+    expect(registro.revoked_at).not.toBeNull();
+
+    // 11. Impedir reutilizacao do token
+    const sessaoRevogada = await getSession(db, token);
+
+    expect(sessaoRevogada).toBeNull();
+
+    // 12. Impedir segundo logout com o mesmo token
+    const segundaResposta = await worker.fetch(
+      new Request(`${origem}/api/auth/logout`, {
+        method: "POST",
+        headers: {
+          Origin: origem,
+          Cookie: login.cookie.split(";")[0]
+        }
+      }),
+      { DB: db }
+    );
+
+    expect(segundaResposta.status).toBe(401);
+
 
     expect(revogada).toBe(true);
 

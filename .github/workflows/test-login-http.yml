@@ -68,4 +68,25 @@ jobs:
           cat resposta.json
 
           test "$STATUS" = "415"
+          
+      - name: Testar login sem token Turnstile
+        shell: bash
+        run: |
+          BASE="https://desenvolvimento-sites-v2-gerador-de-landing-pages-com-ia.thiagofoztt.workers.dev"
+
+          STATUS=$(curl -sS -o resposta-turnstile.json \
+            -w "%{http_code}" \
+            --max-time 20 \
+            -X POST \
+            -H "Origin: $BASE" \
+            -H "Content-Type: application/json" \
+            --data '{}' \
+            "$BASE/api/auth/login")
+
+          echo "HTTP: $STATUS"
+          cat resposta-turnstile.json
+
+          test "$STATUS" = "403"
+          grep -q "Verificação de segurança inválida" resposta-turnstile.json
+
 

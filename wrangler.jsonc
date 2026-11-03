@@ -4,17 +4,16 @@
   "keep_vars": true,
   "main": "worker/index.js",
   "compatibility_date": "2026-10-28",
-
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
     "run_worker_first": [
       "/gerar",
       "/api/dev/db-health",
-      "/api/auth/register"
+      "/api/auth/register",
+      "/api/auth/login"
     ]
   },
-
   "ratelimits": [
     {
       "name": "LIMITE_GERACAO",
@@ -23,9 +22,16 @@
         "limit": 20,
         "period": 60
       }
+    },
+    {
+      "name": "AUTH_RATE_LIMIT",
+      "namespace_id": "2004",
+      "simple": {
+        "limit": 5,
+        "period": 60
+      }
     }
   ],
-
   "durable_objects": {
     "bindings": [
       {
@@ -34,19 +40,16 @@
       }
     ]
   },
-
   "exports": {
     "CotaDiaria": {
       "type": "durable-object",
       "storage": "sqlite"
     }
   },
-
   "previews": {
     "vars": {
       "ENABLE_GENERATION": "true"
     },
-
     "d1_databases": [
       {
         "binding": "DB",
@@ -54,7 +57,6 @@
         "database_id": "0b97d5c8-384c-4a08-b058-843323ee729f"
       }
     ],
-
     "ratelimits": [
       {
         "name": "LIMITE_GERACAO",
@@ -73,7 +75,6 @@
         }
       }
     ],
-
     "durable_objects": {
       "bindings": [
         {

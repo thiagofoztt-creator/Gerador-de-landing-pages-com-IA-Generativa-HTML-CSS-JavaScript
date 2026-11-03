@@ -11,7 +11,7 @@
     }
   ]
 
-"durable_objects": {
+"durable_objects":{
   "bindings": [
     {
       "name": "COTA_DIARIA",

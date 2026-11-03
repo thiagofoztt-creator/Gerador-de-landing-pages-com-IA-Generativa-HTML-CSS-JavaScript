@@ -1,6 +1,8 @@
 
 name: Testes Vitest - Autenticacao D1
 
+# Reexecucao dos testes de regressao da autenticacao.
+
 on:
   push:
     branches:

@@ -113,6 +113,22 @@ describe("Integracao real com D1 isolado", () => {
     );
 
     expect(respostaMe.status).toBe(200);
+    
+    // Garantir que os dados autenticados nao sejam
+    // armazenados em cache.
+    expect(
+      respostaMe.headers.get("Cache-Control")
+    ).toBe("no-store");
+
+    // Evitar interpretacao incorreta do tipo de conteudo.
+    expect(
+      respostaMe.headers.get("X-Content-Type-Options")
+    ).toBe("nosniff");
+
+    expect(
+      respostaMe.headers.get("Content-Type")
+    ).toContain("application/json");
+
 
     const corpoMe = await respostaMe.json();
 

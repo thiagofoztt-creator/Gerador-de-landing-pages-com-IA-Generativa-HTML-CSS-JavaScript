@@ -26,12 +26,20 @@ describe("Integracao real com D1 isolado", () => {
     expect(conexao.conectado).toBe(1);
 
    
-    // Executar cada instrucao SQL separadamente.
-    const comandos = schema
+    
+    // Remover comentarios SQL antes da execucao.
+    const schemaLimpo = schema
+      .split("\n")
+      .filter(linha => !linha.trim().startsWith("--"))
+      .join("\n");
+
+    // Separar as instrucoes SQL.
+    const comandos = schemaLimpo
       .split(";")
       .map(comando => comando.trim())
       .filter(Boolean);
 
+    // Executar cada instrucao no D1 isolado.
     for (const comando of comandos) {
       try {
         await db.exec(comando + ";");
@@ -43,6 +51,7 @@ describe("Integracao real com D1 isolado", () => {
         throw error;
       }
     }
+
 
 
     // 3. Cadastrar usuario ficticio

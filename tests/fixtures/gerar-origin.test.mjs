@@ -334,7 +334,45 @@ describe("Protecao de origem da rota /gerar", () => {
       vi.restoreAllMocks();
     }
   });
+    
+  it("bloqueia geracao quando rate limit e atingido", async () => {
+    let chamadasLimite = 0;
 
+    const env = {
+      ...ambienteTeste(),
+      LIMITE_GERACAO: {
+        limit: async ({ key }) => {
+          chamadasLimite++;
+
+          expect(key).toBe("landing-pages-global");
+
+          return { success: false };
+        }
+      }
+    };
+
+    const resposta = await worker.fetch(
+      new Request(`${origem}/gerar`, {
+        method: "POST",
+        headers: {
+          Origin: origem,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          descricao: "Criar uma landing page de tecnologia"
+        })
+      }),
+      env
+    );
+
+    expect(resposta.status).toBe(429);
+
+    expect(await resposta.json()).toEqual({
+      erro: "Limite de 20 requisições por minuto atingido."
+    });
+
+    expect(chamadasLimite).toBe(1);
+  });
 
   });
 });

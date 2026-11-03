@@ -88,5 +88,26 @@ jobs:
 
           test "$STATUS" = "403"
           grep -q "Verificação de segurança inválida" resposta-turnstile.json
+          
+      - name: Testar POST com JSON malformado
+        shell: bash
+        run: |
+          BASE="https://desenvolvimento-sites-v2-gerador-de-landing-pages-com-ia.thiagofoztt.workers.dev"
+
+          STATUS=$(curl -sS -o resposta-json.json \
+            -w "%{http_code}" \
+            --max-time 20 \
+            -X POST \
+            -H "Origin: $BASE" \
+            -H "Content-Type: application/json" \
+            --data '{"email":' \
+            "$BASE/api/auth/login")
+
+          echo "HTTP: $STATUS"
+          cat resposta-json.json
+
+          test "$STATUS" = "400"
+          grep -q "JSON inválido" resposta-json.json
+
 
 

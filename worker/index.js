@@ -111,6 +111,86 @@ export default {
       return response;
     }
 
+    
+    // Encerramento seguro da sessão
+    if (url.pathname === "/api/auth/logout") {
+      if (request.method !== "POST") {
+        return json({ erro: "Método não permitido." }, 405);
+      }
+
+      const origin = request.headers.get("Origin");
+
+      if (origin !== url.origin) {
+        return json({ erro: "Origem não autorizada." }, 403);
+      }
+
+      if (!env.DB) {
+        return json({ erro: "Banco indisponível." }, 503);
+      }
+
+      try {
+        const token = readSessionCookie(request);
+
+        if (!token) {
+          const response = json({
+            erro: "Sessão não autenticada."
+          }, 401);
+
+          response.headers.set(
+            "Set-Cookie",
+            clearSessionCookie()
+          );
+
+          return response;
+        }
+
+        const session = await getSession(env.DB, token);
+
+        if (!session) {
+          const response = json({
+            erro: "Sessão inválida ou expirada."
+          }, 401);
+
+          response.headers.set(
+            "Set-Cookie",
+            clearSessionCookie()
+          );
+
+          return response;
+        }
+
+        const revoked = await revokeSession(
+          env.DB,
+          session.id
+        );
+
+        if (!revoked) {
+          return json({
+            erro: "Não foi possível encerrar a sessão."
+          }, 503);
+        }
+
+        const response = json({
+          mensagem: "Sessão encerrada com sucesso."
+        }, 200);
+
+        response.headers.set(
+          "Set-Cookie",
+          clearSessionCookie()
+        );
+
+        return response;
+
+      } catch {
+        console.error("Falha interna no logout.");
+
+        return json({
+          erro: "Logout temporariamente indisponível."
+        }, 503);
+      }
+    }
+
+    
     // Cadastro de usuários — desativado por padrão
     if (url.pathname === "/api/auth/register") {
       if (request.method !== "POST") {

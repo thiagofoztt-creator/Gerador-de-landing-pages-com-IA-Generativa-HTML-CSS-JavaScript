@@ -1,0 +1,52 @@
+
+name: Testes Vitest - Autenticacao D1
+
+on:
+  push:
+    branches:
+      - desenvolvimento-sites-v2
+    paths:
+      - "vitest.config.mjs"
+      - "tests/**"
+      - ".github/workflows/test-auth-vitest.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testar-vitest:
+    name: Validar autenticacao no Workers
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - name: Configurar Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Instalar dependencias existentes
+        run: bun install --frozen-lockfile
+
+      - name: Instalar dependencias temporarias de teste
+        run: |
+          bun add -d "vitest@^4.1.0" \
+            "@cloudflare/vitest-plugin"
+
+      - name: Executar teste Vitest D1
+        run: |
+          bunx vitest run \
+            tests/auth-d1.integration.test.mjs
+
+      - name: Confirmar execucao
+        run: |
+          echo "Teste Vitest finalizado com sucesso."

@@ -97,6 +97,28 @@ describe("Integracao real com D1 isolado", () => {
 
     expect(sessao).not.toBeNull();
     expect(sessao.user_id).toBe(cadastro.user.id);
+    
+    // Criar segunda sessao para o mesmo usuario.
+    const loginB = await loginUser(db, {
+      email,
+      password
+    });
+
+    expect(loginB.status).toBe(200);
+
+    const cookieB = loginB.cookie.split(";")[0];
+    const tokenB = cookieB.substring(
+      cookieB.indexOf("=") + 1
+    );
+
+    expect(tokenB).not.toBe(token);
+
+    const sessaoB = await getSession(db, tokenB);
+
+    expect(sessaoB).not.toBeNull();
+    expect(sessaoB.user_id).toBe(cadastro.user.id);
+    expect(sessaoB.id).not.toBe(sessao.id);
+
 
     // 8. Executar logout pelo handler HTTP.
     const origem = "https://auth-test.example";
@@ -161,5 +183,25 @@ describe("Integracao real com D1 isolado", () => {
     );
 
     expect(segundaResposta.status).toBe(401);
+
+    
+    // Confirmar que a segunda sessao continua ativa.
+    const sessaoBDepoisLogout = await getSession(
+      db,
+      tokenB
+    );
+
+    expect(sessaoBDepoisLogout).not.toBeNull();
+    expect(sessaoBDepoisLogout.id).toBe(sessaoB.id);
+
+    const registroB = await db.prepare(`
+      SELECT revoked_at
+      FROM user_sessions
+      WHERE id = ?
+    `).bind(sessaoB.id).first();
+
+    expect(registroB).not.toBeNull();
+    expect(registroB.revoked_at).toBeNull();
+
   });
 });

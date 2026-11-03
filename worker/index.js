@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 
 import { registerUser } from "./auth/register.js";
+import { loginUser } from "./auth/login.js";
 import { checkAuthRateLimit } from "./auth/rate-limit.js";
 import { validateAuthTurnstile } from "./auth/turnstile.js";
 
@@ -23,7 +24,90 @@ function json(dados, status = 200) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
     
+    // Autenticação de usuários
+    if (url.pathname === "/api/auth/login") {
+      if (request.method !== "POST") {
+        return json({ erro: "Método não permitido." }, 405);
+      }
+
+      if (!env.DB) {
+        return json({ erro: "Banco indisponível." }, 503);
+      }
+
+      const origin = request.headers.get("Origin");
+
+      if (origin !== url.origin) {
+        return json({ erro: "Origem não autorizada." }, 403);
+      }
+
+      const limit = await checkAuthRateLimit(
+        request,
+        env,
+        "login"
+      );
+
+      if (!limit.allowed) {
+        return json({ erro: limit.error }, limit.status);
+      }
+
+      const type = request.headers.get("content-type") || "";
+
+      if (!type.toLowerCase().includes("application/json")) {
+        return json({ erro: "JSON obrigatório." }, 415);
+      }
+
+      const length = Number(
+        request.headers.get("content-length") || 0
+      );
+
+      if (length > 4096) {
+        return json({ erro: "Requisição muito grande." }, 413);
+      }
+
+      let body;
+
+      try {
+        const bodyText = await request.text();
+
+        if (bodyText.length > 4096) {
+          return json({ erro: "Requisição muito grande." }, 413);
+        }
+
+        body = JSON.parse(bodyText);
+      } catch {
+        return json({ erro: "JSON inválido." }, 400);
+      }
+
+      const validTurnstile = await validateAuthTurnstile(
+        request,
+        env,
+        body?.turnstileToken,
+        "login"
+      );
+
+      if (!validTurnstile) {
+        return json({
+          erro: "Verificação de segurança inválida."
+        }, 403);
+      }
+
+      const result = await loginUser(env.DB, body);
+
+      if (result.status !== 200) {
+        return json({ erro: result.error }, result.status);
+      }
+
+      const response = json({
+        usuario: result.user
+      }, 200);
+
+      response.headers.set("Set-Cookie", result.cookie);
+
+      return response;
+    }
+
     // Cadastro de usuários — desativado por padrão
     if (url.pathname === "/api/auth/register") {
       if (request.method !== "POST") {

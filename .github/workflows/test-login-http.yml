@@ -1,0 +1,50 @@
+
+name: Testes HTTP do login - Preview
+
+on:
+  push:
+    branches:
+      - desenvolvimento-sites-v2
+    paths:
+      - ".github/workflows/test-login-http.yml"
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testar-login-http:
+    name: Validar rota HTTP de login
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Testar metodo GET
+        shell: bash
+        run: |
+          URL="https://desenvolvimento-sites-v2-gerador-de-landing-pages-com-ia.thiagofoztt.workers.dev/api/auth/login"
+
+          STATUS=$(curl -sS -o /dev/null \
+            -w "%{http_code}" \
+            --max-time 20 \
+            "$URL")
+
+          echo "GET HTTP: $STATUS"
+          test "$STATUS" = "405"
+
+      - name: Testar POST com origem invalida
+        shell: bash
+        run: |
+          URL="https://desenvolvimento-sites-v2-gerador-de-landing-pages-com-ia.thiagofoztt.workers.dev/api/auth/login"
+
+          STATUS=$(curl -sS -o /dev/null \
+            -w "%{http_code}" \
+            --max-time 20 \
+            -X POST \
+            -H "Origin: https://origem-invalida.example" \
+            -H "Content-Type: text/plain" \
+            --data '{}' \
+            "$URL")
+
+          echo "POST HTTP: $STATUS"
+          test "$STATUS" = "403"

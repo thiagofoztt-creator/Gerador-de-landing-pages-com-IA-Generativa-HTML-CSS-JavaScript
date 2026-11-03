@@ -97,6 +97,32 @@ describe("Integracao real com D1 isolado", () => {
 
     expect(sessao).not.toBeNull();
     expect(sessao.user_id).toBe(cadastro.user.id);
+
+    
+    // Verificar usuario autenticado via HTTP.
+    const origemMe = "https://auth-test.example";
+
+    const respostaMe = await worker.fetch(
+      new Request(`${origemMe}/api/auth/me`, {
+        method: "GET",
+        headers: {
+          Cookie: login.cookie.split(";")[0]
+        }
+      }),
+      { DB: db }
+    );
+
+    expect(respostaMe.status).toBe(200);
+
+    const corpoMe = await respostaMe.json();
+
+    expect(corpoMe.autenticado).toBe(true);
+    expect(corpoMe.usuario.id).toBe(cadastro.user.id);
+    expect(corpoMe.usuario.email).toBe(email);
+    expect(corpoMe.usuario).not.toHaveProperty(
+      "password_hash"
+    );
+
     
     // Criar segunda sessao para o mesmo usuario.
     const loginB = await loginUser(db, {
@@ -202,6 +228,26 @@ describe("Integracao real com D1 isolado", () => {
 
     expect(registroB).not.toBeNull();
     expect(registroB.revoked_at).toBeNull();
+
+    
+    // Impedir acesso a /api/auth/me apos o logout.
+    const respostaMeAposLogout = await worker.fetch(
+      new Request(`${origem}/api/auth/me`, {
+        method: "GET",
+        headers: {
+          Cookie: cookieSessao
+        }
+      }),
+      { DB: db }
+    );
+
+    expect(respostaMeAposLogout.status).toBe(401);
+
+    const corpoAposLogout =
+      await respostaMeAposLogout.json();
+
+    expect(corpoAposLogout.autenticado).not.toBe(true);
+
 
   });
 });

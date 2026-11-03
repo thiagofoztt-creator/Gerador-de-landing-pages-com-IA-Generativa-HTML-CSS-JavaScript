@@ -152,3 +152,64 @@ test("Ciclo completo: cadastro, login, sessão e logout", async () => {
   const sessaoDepoisLogout = await getSession(db, token);
   assert.equal(sessaoDepoisLogout, null);
 });
+
+
+test("Logout revoga apenas a sessao selecionada", async () => {
+  const db = criarBancoSimulado();
+
+  const email = "multisessao@exemplo.com";
+  const password = "SenhaSeguraMultiSessao2026!";
+
+  const cadastro = await registerUser(db, {
+    name: "Usuario Multissessao",
+    email,
+    password
+  });
+
+  assert.equal(cadastro.status, 201);
+
+  const loginA = await loginUser(db, {
+    email,
+    password
+  });
+
+  const loginB = await loginUser(db, {
+    email,
+    password
+  });
+
+  assert.equal(loginA.status, 200);
+  assert.equal(loginB.status, 200);
+
+  const tokenA = loginA.cookie.split(";")[0].split("=")[1];
+  const tokenB = loginB.cookie.split(";")[0].split("=")[1];
+
+  assert.notEqual(tokenA, tokenB);
+
+  const sessaoA = await getSession(db, tokenA);
+  const sessaoB = await getSession(db, tokenB);
+
+  assert.ok(sessaoA);
+  assert.ok(sessaoB);
+
+  assert.notEqual(sessaoA.id, sessaoB.id);
+
+  const revogada = await revokeSession(db, sessaoA.id);
+
+  assert.equal(revogada, true);
+
+  // A primeira sessao nao pode ser reutilizada.
+  assert.equal(await getSession(db, tokenA), null);
+
+  // A segunda sessao continua ativa.
+  const sessaoBAtiva = await getSession(db, tokenB);
+
+  assert.ok(sessaoBAtiva);
+  assert.equal(sessaoBAtiva.id, sessaoB.id);
+
+  // Nao deve ser possivel revogar a mesma sessao duas vezes.
+  const segundaRevogacao = await revokeSession(db, sessaoA.id);
+
+  assert.equal(segundaRevogacao, false);
+});
+

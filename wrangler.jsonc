@@ -1,4 +1,5 @@
 
+
 {
   "name": "gerador-de-landing-pages-com-ia",
   "keep_vars": true,
@@ -7,18 +8,15 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    
-"assets": {
-  "directory": "./public",
-  "binding": "ASSETS",
-  "run_worker_first": [
-    "/gerar",
-    "/api/dev/db-health",
-    "/api/auth/register",
-    "/api/auth/login",
-    "/api/auth/logout"
-  ]
-},
+    "run_worker_first": [
+      "/gerar",
+      "/api/dev/db-health",
+      "/api/auth/register",
+      "/api/auth/login",
+      "/api/auth/logout"
+    ]
+  },
+
 
   "ratelimits": [
     {

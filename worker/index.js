@@ -110,6 +110,64 @@ export default {
 
       return response;
     }
+     
+    // Consultar usuario autenticado
+    if (url.pathname === "/api/auth/me") {
+      if (request.method !== "GET") {
+        return json({ erro: "Método não permitido." }, 405);
+      }
+
+      if (!env.DB) {
+        return json({ erro: "Banco indisponível." }, 503);
+      }
+
+      try {
+        const token = readSessionCookie(request);
+
+        if (!token) {
+          return json({
+            erro: "Sessão não autenticada."
+          }, 401);
+        }
+
+        const session = await getSession(env.DB, token);
+
+        if (!session) {
+          return json({
+            erro: "Sessão inválida ou expirada."
+          }, 401);
+        }
+
+        const usuario = await env.DB.prepare(`
+          SELECT id, email, display_name
+          FROM users
+          WHERE id = ?
+          LIMIT 1
+        `).bind(session.user_id).first();
+
+        if (!usuario) {
+          return json({
+            erro: "Usuário não encontrado."
+          }, 401);
+        }
+
+        return json({
+          autenticado: true,
+          usuario: {
+            id: usuario.id,
+            email: usuario.email,
+            name: usuario.display_name
+          }
+        }, 200);
+
+      } catch {
+        console.error("Falha ao consultar sessao.");
+
+        return json({
+          erro: "Autenticação temporariamente indisponível."
+        }, 503);
+      }
+    }
 
     
     // Encerramento seguro da sessão

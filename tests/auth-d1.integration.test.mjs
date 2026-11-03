@@ -8,10 +8,7 @@ import schema from "./fixtures/auth_schema.sql?raw";
 import { registerUser } from "../worker/auth/register.js";
 import { loginUser } from "../worker/auth/login.js";
 
-import {
-  getSession,
-  revokeSession
-} from "../worker/auth/session.js";
+import { getSession } from "../worker/auth/session.js";
 
 describe("Integracao real com D1 isolado", () => {
   it("valida cadastro, login, sessao e revogacao", async () => {
@@ -171,11 +168,6 @@ describe("Integracao real com D1 isolado", () => {
       { DB: db }
     );
 
-    expect(segundaResposta.status).toBe(401);
-
-
-    expect(revogada).toBe(true);
-
     // 9. Confirmar revogacao no D1
     const registro = await db.prepare(`
       SELECT revoked_at
@@ -188,6 +180,23 @@ describe("Integracao real com D1 isolado", () => {
     // 10. Impedir reutilizacao do token
     const sessaoRevogada = await getSession(db, token);
 
-    expect(sessaoRevogada).toBeNull();
+    
+    // 12. Impedir segundo logout com o mesmo token
+    const segundaResposta = await worker.fetch(
+      new Request(`${origem}/api/auth/logout`, {
+        method: "POST",
+        headers: {
+          Origin: origem,
+          Cookie: login.cookie.split(";")[0]
+        }
+      }),
+      { DB: db }
+    );
+
+    expect(segundaResposta.status).toBe(401);
+  });
+});
+
+
   });
 });

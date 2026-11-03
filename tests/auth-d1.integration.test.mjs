@@ -25,8 +25,25 @@ describe("Integracao real com D1 isolado", () => {
 
     expect(conexao.conectado).toBe(1);
 
-    // 2. Criar estrutura SQL no D1 isolado
-    await db.exec(schema);
+   
+    // Executar cada instrucao SQL separadamente.
+    const comandos = schema
+      .split(";")
+      .map(comando => comando.trim())
+      .filter(Boolean);
+
+    for (const comando of comandos) {
+      try {
+        await db.exec(comando + ";");
+      } catch (error) {
+        console.error(
+          "Falha ao executar SQL:",
+          comando.slice(0, 200)
+        );
+        throw error;
+      }
+    }
+
 
     // 3. Cadastrar usuario ficticio
     const email = "integracao-d1@example.com";

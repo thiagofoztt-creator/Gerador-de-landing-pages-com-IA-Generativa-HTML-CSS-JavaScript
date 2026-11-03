@@ -335,6 +335,16 @@ export default {
     if (request.method !== "POST") {
       return json({ erro: "Método não permitido." }, 405);
     }
+    
+    // Bloquear requisicoes de origens nao autorizadas.
+    const origemGeracao = request.headers.get("Origin");
+
+    if (origemGeracao !== url.origin) {
+      return json({
+        erro: "Origem não autorizada."
+      }, 403);
+    }
+
 
     // A geração permanece desativada até
     // concluirmos as proteções da API.

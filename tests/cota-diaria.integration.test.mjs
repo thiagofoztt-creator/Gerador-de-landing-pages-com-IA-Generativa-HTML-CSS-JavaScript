@@ -30,5 +30,50 @@ describe("Cota diaria - Durable Object SQLite real", () => {
 
     expect(novamenteBloqueada.permitido).toBe(false);
     expect(novamenteBloqueada.utilizadas).toBe(50);
+
+    
+  it("nao ultrapassa 50 reservas simultaneas", async () => {
+    // Nome exclusivo para nao reutilizar o contador anterior.
+    const nome = `teste-concorrencia-${crypto.randomUUID()}`;
+
+    const contador = env.COTA_DIARIA.getByName(nome);
+
+    // Disparar 60 reservas sem aguardar uma por vez.
+    const solicitacoes = Array.from(
+      { length: 60 },
+      () => contador.reservar()
+    );
+
+    const resultados = await Promise.all(solicitacoes);
+
+    const permitidas = resultados.filter(
+      (resultado) => resultado.permitido === true
+    );
+
+    const bloqueadas = resultados.filter(
+      (resultado) => resultado.permitido === false
+    );
+
+    // O limite nao pode ser ultrapassado.
+    expect(permitidas).toHaveLength(50);
+    expect(bloqueadas).toHaveLength(10);
+
+    // As reservas aprovadas devem receber
+    // numeros unicos de 1 ate 50.
+    const numeros = permitidas
+      .map((resultado) => resultado.utilizadas)
+      .sort((a, b) => a - b);
+
+    expect(numeros).toEqual(
+      Array.from({ length: 50 }, (_, i) => i + 1)
+    );
+
+    // Uma nova reserva deve continuar bloqueada.
+    const tentativaExtra = await contador.reservar();
+
+    expect(tentativaExtra.permitido).toBe(false);
+    expect(tentativaExtra.utilizadas).toBe(50);
+  });
+
   });
 });

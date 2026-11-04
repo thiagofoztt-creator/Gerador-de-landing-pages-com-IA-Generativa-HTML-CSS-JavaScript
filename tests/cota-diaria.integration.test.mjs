@@ -364,5 +364,70 @@ describe("Cota diaria - Durable Object SQLite real", () => {
 
     expect(novaReserva.permitido).toBe(true);
     expect(novaReserva.utilizadas).toBe(4);
+  
+  it("identifica corretamente mais de 100 reservas antigas", async () => {
+    const nome = `teste-paginacao-${crypto.randomUUID()}`;
+    const contador = env.COTA_DIARIA.getByName(nome);
+
+    // Criar 101 registros ficticios diretamente no SQLite.
+    await runInDurableObject(
+      contador,
+      (_instancia, state) => {
+        state.storage.sql.exec(`
+          WITH RECURSIVE numeros(n) AS (
+            SELECT 1
+            UNION ALL
+            SELECT n + 1 FROM numeros WHERE n < 101
+          )
+          INSERT INTO reservas (
+            id,
+            dia,
+            status,
+            criada_em,
+            atualizada_em
+          )
+          SELECT
+            printf('pagina-%03d', n),
+            '2020-01-01',
+            'reservada',
+            '2020-01-01T00:00:00.000Z',
+            '2020-01-01T00:00:00.000Z'
+          FROM numeros
+        `);
+      }
+    );
+
+    // Com 101 reservas, deve haver outra pagina.
+    const primeiraConsulta =
+      await contador.listarPendentesAntigas();
+
+    expect(primeiraConsulta.totalEncontradas).toBe(100);
+    expect(primeiraConsulta.reservas).toHaveLength(100);
+    expect(primeiraConsulta.haMais).toBe(true);
+
+    expect(primeiraConsulta.reservas[0].id)
+      .toBe("pagina-001");
+
+    expect(primeiraConsulta.reservas[99].id)
+      .toBe("pagina-100");
+
+    // Remover somente o registro ficticio 101.
+    await runInDurableObject(
+      contador,
+      (_instancia, state) => {
+        state.storage.sql.exec(
+          "DELETE FROM reservas WHERE id = ?",
+          "pagina-101"
+        );
+      }
+    );
+
+    // Agora existem exatamente 100 registros.
+    const segundaConsulta =
+      await contador.listarPendentesAntigas();
+
+    expect(segundaConsulta.totalEncontradas).toBe(100);
+    expect(segundaConsulta.reservas).toHaveLength(100);
+    expect(segundaConsulta.haMais).toBe(false);
   });
 });

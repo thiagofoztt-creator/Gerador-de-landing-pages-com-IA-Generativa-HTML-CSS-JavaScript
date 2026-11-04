@@ -674,14 +674,19 @@ console.log(
   }
 };
 
-
 export class CotaDiaria extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
 
-    
-    // Registrar cada reserva para permitir
-    // confirmacao e cancelamento sem estornos duplicados.
+    // Contador diario de geracoes
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS cotas (
+        dia TEXT PRIMARY KEY,
+        utilizadas INTEGER NOT NULL
+      )
+    `);
+
+    // Registro individual das reservas
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS reservas (
         id TEXT PRIMARY KEY,
@@ -699,14 +704,14 @@ export class CotaDiaria extends DurableObject {
       )
     `);
 
+    // Indice para consultas de reservas
     this.ctx.storage.sql.exec(`
       CREATE INDEX IF NOT EXISTS idx_reservas_dia_status
       ON reservas (dia, status)
     `);
+  }
 
-
-  
-  async reservar() {
+    async reservar() {
     const dia = new Date().toISOString().slice(0, 10);
     const limite = 50;
 

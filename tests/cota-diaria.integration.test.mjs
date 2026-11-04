@@ -430,4 +430,115 @@ describe("Cota diaria - Durable Object SQLite real", () => {
     expect(segundaConsulta.reservas).toHaveLength(100);
     expect(segundaConsulta.haMais).toBe(false);
   });
+    
+  it("pagina 205 reservas sem perder ou duplicar registros", async () => {
+    const nome = `teste-cursor-${crypto.randomUUID()}`;
+    const contador = env.COTA_DIARIA.getByName(nome);
+
+    // Inserir 205 reservas antigas no SQLite isolado.
+    await runInDurableObject(
+      contador,
+      (_instancia, state) => {
+        state.storage.sql.exec(`
+          WITH RECURSIVE numeros(n) AS (
+            SELECT 1
+            UNION ALL
+            SELECT n + 1
+            FROM numeros
+            WHERE n < 205
+          )
+          INSERT INTO reservas (
+            id,
+            dia,
+            status,
+            criada_em,
+            atualizada_em
+          )
+          SELECT
+            printf('reserva-%03d', n),
+            '2020-01-01',
+            'reservada',
+            '2020-01-01T00:00:00.000Z',
+            '2020-01-01T00:00:00.000Z'
+          FROM numeros
+        `);
+      }
+    );
+
+    // Primeira pagina: 100 registros.
+    const pagina1 = await contador.listarPendentesAntigas();
+
+    expect(pagina1.totalEncontradas).toBe(100);
+    expect(pagina1.haMais).toBe(true);
+    expect(pagina1.proximoCursor).not.toBeNull();
+
+    // Segunda pagina: mais 100 registros.
+    const pagina2 = await contador.listarPendentesAntigas(
+      pagina1.proximoCursor
+    );
+
+    expect(pagina2.totalEncontradas).toBe(100);
+    expect(pagina2.haMais).toBe(true);
+    expect(pagina2.proximoCursor).not.toBeNull();
+
+    // Terceira pagina: cinco registros restantes.
+    const pagina3 = await contador.listarPendentesAntigas(
+      pagina2.proximoCursor
+    );
+
+    expect(pagina3.totalEncontradas).toBe(5);
+    expect(pagina3.haMais).toBe(false);
+    expect(pagina3.proximoCursor).toBeNull();
+
+    // Reunir as tres paginas.
+    const todas = [
+      ...pagina1.reservas,
+      ...pagina2.reservas,
+      ...pagina3.reservas
+    ];
+
+    expect(todas).toHaveLength(205);
+
+    // Verificar que nenhum ID foi repetido.
+    const ids = todas.map(reserva => reserva.id);
+    const idsUnicos = new Set(ids);
+
+    expect(idsUnicos.size).toBe(205);
+
+    // Conferir os limites de cada pagina.
+    expect(pagina1.reservas[0].id)
+      .toBe("reserva-001");
+
+    expect(pagina1.reservas[99].id)
+      .toBe("reserva-100");
+
+    expect(pagina2.reservas[0].id)
+      .toBe("reserva-101");
+
+    expect(pagina2.reservas[99].id)
+      .toBe("reserva-200");
+
+    expect(pagina3.reservas[0].id)
+      .toBe("reserva-201");
+
+    expect(pagina3.reservas[4].id)
+      .toBe("reserva-205");
+
+    // Conferir que todos os registros permanecem pendentes.
+    expect(
+      todas.every(reserva => reserva.status === "reservada")
+    ).toBe(true);
+
+    // Conferir que o contador nao foi modificado.
+    const cotas = await runInDurableObject(
+      contador,
+      (_instancia, state) => {
+        return state.storage.sql.exec(
+          "SELECT COUNT(*) AS total FROM cotas"
+        ).toArray();
+      }
+    );
+
+    expect(cotas[0].total).toBe(0);
+  });
 });

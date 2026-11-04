@@ -965,6 +965,39 @@ export class CotaDiaria extends DurableObject {
       proximoCursor,
       reservas
     };
+    
+  async consultarEstadoReserva(reservaId) {
+    if (
+      typeof reservaId !== "string" ||
+      reservaId.length === 0 ||
+      reservaId.length > 128
+    ) {
+      throw new Error("Identificador de reserva invalido.");
+    }
+
+    const registros = this.ctx.storage.sql.exec(`
+      SELECT
+        id,
+        dia,
+        status,
+        criada_em,
+        atualizada_em
+      FROM reservas
+      WHERE id = ?
+      LIMIT 1
+    `, reservaId).toArray();
+
+    if (registros.length === 0) {
+      return {
+        encontrada: false,
+        reserva: null
+      };
+    }
+
+    return {
+      encontrada: true,
+      reserva: registros[0]
+    };
   }
 }
 

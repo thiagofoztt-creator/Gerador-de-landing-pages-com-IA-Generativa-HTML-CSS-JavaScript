@@ -751,9 +751,6 @@ export class CotaDiaria extends DurableObject {
       };
     });
   }
-
-  async confirmar(reservaId) {
-
     
   async confirmar(reservaId) {
     if (typeof reservaId !== "string" || !reservaId) {

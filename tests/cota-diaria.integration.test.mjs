@@ -160,9 +160,8 @@ describe("Cota diaria - Durable Object SQLite real", () => {
 
     expect(terceira.permitido).toBe(true);
     expect(terceira.utilizadas).toBe(2);
+    );
   });
-
-    });
 
     // O dia atual deve comecar com uma nova cota.
     const primeiraReserva = await contador.reservar();

@@ -359,6 +359,10 @@ export default {
         erro: "Serviço de IA não configurado."
       }, 503);
     }
+    // Controlar a reserva durante o processamento da IA.
+    let contador = null;
+    let reservaId = null;
+    let reservaConfirmada = false;
 
     try {
       const tipo = request.headers.get("content-type") || "";
@@ -484,13 +488,16 @@ export default {
         }, 503);
       }
 
-      // Todos os usuários compartilham o mesmo contador
-      const contador = env.COTA_DIARIA.getByName(
+      contador = env.COTA_DIARIA.getByName(
         "gerador-global"
       );
 
       // Reservar uma geração antes de chamar o Gemini
       const cota = await contador.reservar();
+      
+      if (cota.permitido === true) {
+        reservaId = cota.reservaId;
+      }
 
       if (!cota.permitido) {
         return json({

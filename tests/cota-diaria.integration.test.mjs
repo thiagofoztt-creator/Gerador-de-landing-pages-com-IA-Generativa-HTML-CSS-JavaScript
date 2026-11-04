@@ -728,4 +728,85 @@ describe("Cota diaria - Durable Object SQLite real", () => {
     expect(registros.cotas[0].utilizadas)
       .toBe(1);
   });
+    
+  it("consulta os tres estados sem alterar as cotas", async () => {
+    const nome = `teste-estados-${crypto.randomUUID()}`;
+    const contador = env.COTA_DIARIA.getByName(nome);
+
+    // Criar tres reservas no SQLite real.
+    const pendente = await contador.reservar();
+    const confirmada = await contador.reservar();
+    const cancelada = await contador.reservar();
+
+    expect(pendente.permitido).toBe(true);
+    expect(confirmada.permitido).toBe(true);
+    expect(cancelada.permitido).toBe(true);
+
+    // Alterar duas reservas usando os metodos reais.
+    const resultadoConfirmacao = await contador.confirmar(
+      confirmada.reservaId
+    );
+
+    const resultadoCancelamento = await contador.cancelar(
+      cancelada.reservaId
+    );
+
+    expect(resultadoConfirmacao.confirmada).toBe(true);
+    expect(resultadoCancelamento.cancelada).toBe(true);
+
+    // Consultar os estados atuais.
+    const estadoPendente = await contador.consultarEstadoReserva(
+      pendente.reservaId
+    );
+
+    const estadoConfirmada = await contador.consultarEstadoReserva(
+      confirmada.reservaId
+    );
+
+    const estadoCancelada = await contador.consultarEstadoReserva(
+      cancelada.reservaId
+    );
+
+    expect(estadoPendente.encontrada).toBe(true);
+    expect(estadoPendente.reserva.id).toBe(
+      pendente.reservaId
+    );
+    expect(estadoPendente.reserva.status).toBe("reservada");
+
+    expect(estadoConfirmada.encontrada).toBe(true);
+    expect(estadoConfirmada.reserva.id).toBe(
+      confirmada.reservaId
+    );
+    expect(estadoConfirmada.reserva.status).toBe("confirmada");
+
+    expect(estadoCancelada.encontrada).toBe(true);
+    expect(estadoCancelada.reserva.id).toBe(
+      cancelada.reservaId
+    );
+    expect(estadoCancelada.reserva.status).toBe("cancelada");
+
+    // Consultar uma reserva que nao existe.
+    const inexistente = await contador.consultarEstadoReserva(
+      crypto.randomUUID()
+    );
+
+    expect(inexistente).toEqual({
+      encontrada: false,
+      reserva: null
+    });
+
+    // Verificar que consultas nao alteraram a cota.
+    // Tres reservas - um cancelamento = duas utilizacoes.
+    const registros = await runInDurableObject(
+      contador,
+      (_instancia, state) => {
+        return state.storage.sql.exec(
+          "SELECT utilizadas FROM cotas"
+        ).toArray();
+      }
+    );
+
+    expect(registros).toHaveLength(1);
+    expect(registros[0].utilizadas).toBe(2);
+  });
 });

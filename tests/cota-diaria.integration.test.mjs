@@ -541,4 +541,95 @@ describe("Cota diaria - Durable Object SQLite real", () => {
 
     expect(cotas[0].total).toBe(0);
   });
+    
+  it("mantem paginacao consistente quando reservas mudam de status", async () => {
+    const nome = `teste-mudanca-${crypto.randomUUID()}`;
+    const contador = env.COTA_DIARIA.getByName(nome);
+
+    // Criar 105 reservas antigas no banco isolado.
+    await runInDurableObject(
+      contador,
+      (_instancia, state) => {
+        state.storage.sql.exec(`
+          WITH RECURSIVE numeros(n) AS (
+            SELECT 1
+            UNION ALL
+            SELECT n + 1
+            FROM numeros
+            WHERE n < 105
+          )
+          INSERT INTO reservas (
+            id, dia, status, criada_em, atualizada_em
+          )
+          SELECT
+            printf('reserva-%03d', n),
+            '2020-01-01',
+            'reservada',
+            '2020-01-01T00:00:00.000Z',
+            '2020-01-01T00:00:00.000Z'
+          FROM numeros
+        `);
+      }
+    );
+
+    // Consultar a primeira pagina.
+    const pagina1 = await contador.listarPendentesAntigas();
+
+    expect(pagina1.reservas).toHaveLength(100);
+    expect(pagina1.haMais).toBe(true);
+    expect(pagina1.proximoCursor).not.toBeNull();
+
+    // Simular alteracoes concorrentes de status.
+    // Atualizacao direta porque os registros sao
+    // ficticios e nao possuem cotas correspondentes.
+    await runInDurableObject(
+      contador,
+      (_instancia, state) => {
+        state.storage.sql.exec(`
+          UPDATE reservas
+          SET status = 'confirmada'
+          WHERE id = 'reserva-100'
+        `);
+
+        state.storage.sql.exec(`
+          UPDATE reservas
+          SET status = 'cancelada'
+          WHERE id = 'reserva-101'
+        `);
+      }
+    );
+
+    // Continuar a consulta usando o cursor original.
+    const pagina2 = await contador.listarPendentesAntigas(
+      pagina1.proximoCursor
+    );
+
+    expect(pagina2.reservas).toHaveLength(4);
+    expect(pagina2.haMais).toBe(false);
+    expect(pagina2.proximoCursor).toBeNull();
+
+    const idsPagina2 = pagina2.reservas.map(
+      reserva => reserva.id
+    );
+
+    expect(idsPagina2).toEqual([
+      "reserva-102",
+      "reserva-103",
+      "reserva-104",
+      "reserva-105"
+    ]);
+
+    // Nenhum identificador deve aparecer duas vezes.
+    const ids = [
+      ...pagina1.reservas.map(reserva => reserva.id),
+      ...idsPagina2
+    ];
+
+    expect(ids).toHaveLength(104);
+    expect(new Set(ids).size).toBe(104);
+
+    // A reserva cancelada nao deve aparecer
+    // na segunda pagina.
+    expect(idsPagina2).not.toContain("reserva-101");
+  });
 });

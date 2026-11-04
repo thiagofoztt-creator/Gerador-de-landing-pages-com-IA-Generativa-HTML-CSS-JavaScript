@@ -705,32 +705,50 @@ export class CotaDiaria extends DurableObject {
     `);
 
 
+  
   async reservar() {
     const dia = new Date().toISOString().slice(0, 10);
     const limite = 50;
 
-    const linhas = this.ctx.storage.sql.exec(`
-      INSERT INTO cotas (dia, utilizadas)
-      VALUES (?, 1)
-      ON CONFLICT(dia)
-      DO UPDATE SET utilizadas = utilizadas + 1
-      WHERE utilizadas < ?
-      RETURNING utilizadas
-    `, dia, limite).toArray();
+    const id = crypto.randomUUID();
+    const agora = new Date().toISOString();
 
-    if (linhas.length === 0) {
+    return this.ctx.storage.transactionSync(() => {
+      const linhas = this.ctx.storage.sql.exec(`
+        INSERT INTO cotas (dia, utilizadas)
+        VALUES (?, 1)
+        ON CONFLICT(dia)
+        DO UPDATE SET utilizadas = utilizadas + 1
+        WHERE utilizadas < ?
+        RETURNING utilizadas
+      `, dia, limite).toArray();
+
+      if (linhas.length === 0) {
+        return {
+          permitido: false,
+          utilizadas: limite,
+          limite
+        };
+      }
+
+      this.ctx.storage.sql.exec(`
+        INSERT INTO reservas (
+          id,
+          dia,
+          status,
+          criada_em,
+          atualizada_em
+        )
+        VALUES (?, ?, 'reservada', ?, ?)
+      `, id, dia, agora, agora);
+
       return {
-        permitido: false,
-        utilizadas: limite,
+        permitido: true,
+        reservaId: id,
+        utilizadas: linhas[0].utilizadas,
         limite
       };
-    }
-
-    return {
-      permitido: true,
-      utilizadas: linhas[0].utilizadas,
-      limite
-    };
+    });
   }
-}
+
 

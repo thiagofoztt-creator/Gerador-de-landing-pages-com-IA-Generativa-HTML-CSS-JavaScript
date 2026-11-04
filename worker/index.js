@@ -742,12 +742,18 @@ export class CotaDiaria extends DurableObject {
         VALUES (?, ?, 'reservada', ?, ?)
       `, id, dia, agora, agora);
 
+      
       return {
         permitido: true,
         reservaId: id,
         utilizadas: linhas[0].utilizadas,
         limite
       };
+    });
+  }
+
+  async confirmar(reservaId) {
+
     
   async confirmar(reservaId) {
     if (typeof reservaId !== "string" || !reservaId) {
@@ -811,6 +817,8 @@ export class CotaDiaria extends DurableObject {
       };
     });
   }
+}
+
 
 
 

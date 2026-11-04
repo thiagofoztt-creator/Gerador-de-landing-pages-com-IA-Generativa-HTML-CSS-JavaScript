@@ -861,6 +861,36 @@ export class CotaDiaria extends DurableObject {
         cancelada: true,
         utilizadas: contador[0].utilizadas
       };
+    }
+                                            
+  async listarPendentesAntigas() {
+    // Margem de seguranca de 30 minutos.
+    const limiteMinutos = 30;
+
+    const dataLimite = new Date(
+      Date.now() - limiteMinutos * 60 * 1000
+    ).toISOString();
+
+    const reservas = this.ctx.storage.sql.exec(`
+      SELECT
+        id,
+        dia,
+        status,
+        criada_em,
+        atualizada_em
+      FROM reservas
+      WHERE status = 'reservada'
+        AND criada_em <= ?
+      ORDER BY criada_em ASC
+      LIMIT 100
+    `, dataLimite).toArray();
+
+    return {
+      totalEncontradas: reservas.length,
+      criterioMinutos: limiteMinutos,
+      reservas
+    };
+  }                                          
     });
   }
 }

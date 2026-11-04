@@ -667,19 +667,57 @@ console.log(
           erro: "A IA não retornou HTML completo."
         }, 502);
       }
+      // Confirmar a reserva somente apos gerar HTML valido.
+      if (!contador || !reservaId) {
+        throw new Error("Reserva da geracao nao identificada.");
+      }
 
-      // Retornar a página gerada
+      const confirmacao = await contador.confirmar(reservaId);
+
+      if (confirmacao.confirmada !== true) {
+        throw new Error("Falha ao confirmar reserva da geracao.");
+      }
+
+      reservaConfirmada = true;
+
+      // Retornar a pagina gerada.
       return json({ codigo });
 
+
+    
     } catch (erro) {
       console.error("Erro na geração:", erro.message);
 
       return json({
         erro: "Não foi possível gerar a página."
       }, 500);
+
+    } finally {
+      // Cancelar reservas que nao foram confirmadas.
+      if (contador && reservaId && !reservaConfirmada) {
+        try {
+          const cancelamento = await contador.cancelar(
+            reservaId
+          );
+
+          if (cancelamento.cancelada === true) {
+            console.log("Reserva cancelada apos falha na geracao.");
+          } else {
+            console.error(
+              "Reserva nao foi cancelada; verificar estado:",
+              reservaId
+            );
+          }
+        } catch (erroCancelamento) {
+          console.error(
+            "Falha ao cancelar reserva:",
+            reservaId,
+            erroCancelamento.message
+          );
+        }
+      }
     }
-  }
-};
+
 
 export class CotaDiaria extends DurableObject {
   constructor(ctx, env) {

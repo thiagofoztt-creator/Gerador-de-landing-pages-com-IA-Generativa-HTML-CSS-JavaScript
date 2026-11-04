@@ -822,6 +822,7 @@ export class CotaDiaria extends DurableObject {
     });
   }
 
+  
   async cancelar(reservaId) {
     if (typeof reservaId !== "string" || !reservaId) {
       return { cancelada: false };
@@ -862,8 +863,8 @@ export class CotaDiaria extends DurableObject {
         utilizadas: contador[0].utilizadas
       };
     });
-  }                                       
-  
+  }
+
   async listarPendentesAntigas() {
     const limiteMinutos = 30;
     const tamanhoPagina = 100;
@@ -872,8 +873,6 @@ export class CotaDiaria extends DurableObject {
       Date.now() - limiteMinutos * 60 * 1000
     ).toISOString();
 
-    // Buscar um registro adicional para identificar
-    // se existem outras reservas pendentes.
     const registros = this.ctx.storage.sql.exec(`
       SELECT
         id,
@@ -889,9 +888,8 @@ export class CotaDiaria extends DurableObject {
     `, dataLimite, tamanhoPagina + 1).toArray();
 
     const haMais = registros.length > tamanhoPagina;
-
     const reservas = registros.slice(0, tamanhoPagina);
-    
+
     return {
       totalEncontradas: reservas.length,
       criterioMinutos: limiteMinutos,
@@ -900,4 +898,5 @@ export class CotaDiaria extends DurableObject {
     };
   }
 }
+
 

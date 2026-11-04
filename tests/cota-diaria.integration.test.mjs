@@ -94,6 +94,74 @@ describe("Cota diaria - Durable Object SQLite real", () => {
         ontem,
         50
       );
+      
+  it("impede estornos duplicados e cancelamento de reserva confirmada", async () => {
+    const nome = `teste-estornos-${crypto.randomUUID()}`;
+    const contador = env.COTA_DIARIA.getByName(nome);
+
+    // Criar uma reserva que sera cancelada.
+    const primeira = await contador.reservar();
+
+    expect(primeira.permitido).toBe(true);
+    expect(primeira.reservaId).toBeTruthy();
+    expect(primeira.utilizadas).toBe(1);
+
+    // Primeiro cancelamento: deve devolver uma unidade.
+    const cancelamento = await contador.cancelar(
+      primeira.reservaId
+    );
+
+    expect(cancelamento.cancelada).toBe(true);
+    expect(cancelamento.utilizadas).toBe(0);
+
+    // Segundo cancelamento: nao pode devolver novamente.
+    const cancelamentoDuplicado = await contador.cancelar(
+      primeira.reservaId
+    );
+
+    expect(cancelamentoDuplicado.cancelada).toBe(false);
+
+    // Reserva cancelada nao pode ser confirmada.
+    const confirmacaoInvalida = await contador.confirmar(
+      primeira.reservaId
+    );
+
+    expect(confirmacaoInvalida.confirmada).toBe(false);
+
+    // Criar outra reserva e confirmar.
+    const segunda = await contador.reservar();
+
+    expect(segunda.permitido).toBe(true);
+    expect(segunda.utilizadas).toBe(1);
+
+    const confirmacao = await contador.confirmar(
+      segunda.reservaId
+    );
+
+    expect(confirmacao.confirmada).toBe(true);
+
+    // Confirmacao repetida nao deve mudar o estado.
+    const confirmacaoDuplicada = await contador.confirmar(
+      segunda.reservaId
+    );
+
+    expect(confirmacaoDuplicada.confirmada).toBe(false);
+
+    // Uma reserva confirmada nao pode ser cancelada.
+    const cancelamentoInvalido = await contador.cancelar(
+      segunda.reservaId
+    );
+
+    expect(cancelamentoInvalido.cancelada).toBe(false);
+
+    // Nova reserva deve encontrar exatamente
+    // uma utilizacao contabilizada.
+    const terceira = await contador.reservar();
+
+    expect(terceira.permitido).toBe(true);
+    expect(terceira.utilizadas).toBe(2);
+  });
+
     });
 
     // O dia atual deve comecar com uma nova cota.

@@ -748,7 +748,69 @@ export class CotaDiaria extends DurableObject {
         utilizadas: linhas[0].utilizadas,
         limite
       };
+    
+  async confirmar(reservaId) {
+    if (typeof reservaId !== "string" || !reservaId) {
+      return { confirmada: false };
+    }
+
+    return this.ctx.storage.transactionSync(() => {
+      const linhas = this.ctx.storage.sql.exec(`
+        UPDATE reservas
+        SET status = 'confirmada',
+            atualizada_em = ?
+        WHERE id = ?
+          AND status = 'reservada'
+        RETURNING id
+      `, new Date().toISOString(), reservaId).toArray();
+
+      return {
+        confirmada: linhas.length === 1
+      };
     });
   }
+
+  async cancelar(reservaId) {
+    if (typeof reservaId !== "string" || !reservaId) {
+      return { cancelada: false };
+    }
+
+    return this.ctx.storage.transactionSync(() => {
+      const linhas = this.ctx.storage.sql.exec(`
+        UPDATE reservas
+        SET status = 'cancelada',
+            atualizada_em = ?
+        WHERE id = ?
+          AND status = 'reservada'
+        RETURNING dia
+      `, new Date().toISOString(), reservaId).toArray();
+
+      if (linhas.length === 0) {
+        return { cancelada: false };
+      }
+
+      const dia = linhas[0].dia;
+
+      const contador = this.ctx.storage.sql.exec(`
+        UPDATE cotas
+        SET utilizadas = utilizadas - 1
+        WHERE dia = ?
+          AND utilizadas > 0
+        RETURNING utilizadas
+      `, dia).toArray();
+
+      if (contador.length !== 1) {
+        throw new Error(
+          "Inconsistencia ao cancelar reserva."
+        );
+      }
+
+      return {
+        cancelada: true,
+        utilizadas: contador[0].utilizadas
+      };
+    });
+  }
+
 
 

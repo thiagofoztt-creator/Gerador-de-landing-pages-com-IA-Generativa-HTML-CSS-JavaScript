@@ -293,5 +293,76 @@ describe("Cota diaria - Durable Object SQLite real", () => {
     );
 
     expect(contadorAtual.utilizadas).toBe(1);
+    );
+    
+  it("identifica somente reservas pendentes antigas", async () => {
+    const nome = `teste-antigas-${crypto.randomUUID()}`;
+    const contador = env.COTA_DIARIA.getByName(nome);
+
+    // Criar quatro reservas no SQLite real.
+    const antiga = await contador.reservar();
+    const recente = await contador.reservar();
+    const confirmada = await contador.reservar();
+    const cancelada = await contador.reservar();
+
+    expect(antiga.permitido).toBe(true);
+    expect(recente.permitido).toBe(true);
+    expect(confirmada.permitido).toBe(true);
+    expect(cancelada.permitido).toBe(true);
+
+    // Concluir duas reservas para testar o filtro.
+    const confirmacao = await contador.confirmar(
+      confirmada.reservaId
+    );
+
+    const cancelamento = await contador.cancelar(
+      cancelada.reservaId
+    );
+
+    expect(confirmacao.confirmada).toBe(true);
+    expect(cancelamento.cancelada).toBe(true);
+
+    // Simular reservas criadas duas horas antes.
+    // Nenhuma alteracao no relogio real.
+    const duasHorasAtras = new Date(
+      Date.now() - 2 * 60 * 60 * 1000
+    ).toISOString();
+
+    await runInDurableObject(
+      contador,
+      (_instancia, state) => {
+        for (const id of [
+          antiga.reservaId,
+          confirmada.reservaId,
+          cancelada.reservaId
+        ]) {
+          state.storage.sql.exec(
+            "UPDATE reservas SET criada_em = ? WHERE id = ?",
+            duasHorasAtras,
+            id
+          );
+        }
+      }
+    );
+
+    // Consultar o metodo real de identificacao.
+    const resultado = await contador.listarPendentesAntigas();
+
+    expect(resultado.criterioMinutos).toBe(30);
+    expect(resultado.totalEncontradas).toBe(1);
+
+    expect(resultado.reservas).toHaveLength(1);
+    expect(resultado.reservas[0].id).toBe(
+      antiga.reservaId
+    );
+    expect(resultado.reservas[0].status).toBe(
+      "reservada"
+    );
+
+    // Garantir que a consulta nao alterou o contador.
+    const novaReserva = await contador.reservar();
+
+    expect(novaReserva.permitido).toBe(true);
+    expect(novaReserva.utilizadas).toBe(4);
   });
 });

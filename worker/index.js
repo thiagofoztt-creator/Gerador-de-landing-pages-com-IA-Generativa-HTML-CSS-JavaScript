@@ -683,8 +683,6 @@ console.log(
       // Retornar a pagina gerada.
       return json({ codigo });
 
-
-    
     } catch (erro) {
       console.error("Erro na geração:", erro.message);
 
@@ -713,11 +711,12 @@ console.log(
             "Falha ao cancelar reserva:",
             reservaId,
             erroCancelamento.message
-          );
+         );
         }
       }
     }
-
+  }
+};
 
 export class CotaDiaria extends DurableObject {
   constructor(ctx, env) {

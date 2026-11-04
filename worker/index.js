@@ -861,8 +861,8 @@ export class CotaDiaria extends DurableObject {
         cancelada: true,
         utilizadas: contador[0].utilizadas
       };
-    }
-                                            
+    });
+  }                                       
   async listarPendentesAntigas() {
     // Margem de seguranca de 30 minutos.
     const limiteMinutos = 30;

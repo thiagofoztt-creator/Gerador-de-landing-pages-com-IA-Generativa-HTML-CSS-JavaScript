@@ -714,6 +714,95 @@ describe("Protecao de origem da rota /gerar", () => {
     } finally {
       vi.restoreAllMocks();
     }
-  });
+  
+  it("nao entrega site quando confirmacao da reserva falha", async () => {
+    const reservaId = crypto.randomUUID();
 
+    const contador = {
+      reservar: vi.fn(async () => ({
+        permitido: true,
+        reservaId,
+        utilizadas: 1,
+        limite: 50
+      })),
+      confirmar: vi.fn(async () => ({
+        confirmada: false
+      })),
+      cancelar: vi.fn(async () => ({
+        cancelada: true,
+        utilizadas: 0
+      }))
+    };
+
+    const env = {
+      ...ambienteTeste(),
+      TURNSTILE_SECRET_KEY: "segredo-ficticio",
+      LIMITE_GERACAO: {
+        limit: async () => ({ success: true })
+      },
+      COTA_DIARIA: {
+        getByName: () => contador
+      }
+    };
+
+    const fetchSimulado = vi.spyOn(globalThis, "fetch")
+      .mockImplementation(async (endereco) => {
+        if (String(endereco).includes("siteverify")) {
+          return Response.json({
+            success: true,
+            hostname: "preview.example"
+          });
+        }
+
+        if (String(endereco).includes("generateContent")) {
+          return Response.json({
+            candidates: [{
+              content: {
+                parts: [{
+                  text: "<html><body>Site valido</body></html>"
+                }]
+              }
+            }]
+          });
+        }
+
+        throw new Error("Chamada externa inesperada");
+      });
+
+    try {
+      const resposta = await worker.fetch(
+        new Request(`${origem}/gerar`, {
+          method: "POST",
+          headers: {
+            Origin: origem,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            descricao: "Criar um site de tecnologia",
+            turnstileToken: "token-ficticio"
+          })
+        }),
+        env
+      );
+
+      expect(resposta.status).toBe(500);
+
+      expect(await resposta.json()).toEqual({
+        erro: "Não foi possível gerar a página."
+      });
+
+      expect(contador.reservar).toHaveBeenCalledTimes(1);
+      expect(contador.confirmar).toHaveBeenCalledWith(
+        reservaId
+      );
+      expect(contador.cancelar).toHaveBeenCalledTimes(1);
+      expect(contador.cancelar).toHaveBeenCalledWith(
+        reservaId
+      );
+
+      expect(fetchSimulado).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.restoreAllMocks();
+    }
+  });
 });

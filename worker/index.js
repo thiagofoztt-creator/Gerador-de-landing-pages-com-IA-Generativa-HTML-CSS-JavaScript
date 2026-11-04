@@ -891,8 +891,8 @@ export class CotaDiaria extends DurableObject {
     const haMais = registros.length > tamanhoPagina;
 
     const reservas = registros.slice(0, tamanhoPagina);
-
-        return {
+    
+    return {
       totalEncontradas: reservas.length,
       criterioMinutos: limiteMinutos,
       haMais,
@@ -900,3 +900,4 @@ export class CotaDiaria extends DurableObject {
     };
   }
 }
+

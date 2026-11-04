@@ -197,5 +197,57 @@ describe("Cota diaria - Durable Object SQLite real", () => {
 
     expect(novaReserva.permitido).toBe(true);
     expect(novaReserva.utilizadas).toBe(1);
+    ]);
+  });
+    
+  it("impede confirmar e cancelar a mesma reserva simultaneamente", async () => {
+    const nome = `teste-disputa-${crypto.randomUUID()}`;
+    const contador = env.COTA_DIARIA.getByName(nome);
+
+    // Criar uma reserva pendente.
+    const reserva = await contador.reservar();
+
+    expect(reserva.permitido).toBe(true);
+    expect(reserva.utilizadas).toBe(1);
+    expect(reserva.reservaId).toBeTruthy();
+
+    // Disputar a mesma reserva em paralelo.
+    const [confirmacao, cancelamento] = await Promise.all([
+      contador.confirmar(reserva.reservaId),
+      contador.cancelar(reserva.reservaId)
+    ]);
+
+    // Somente uma transicao pode acontecer.
+    const totalSucessos =
+      Number(confirmacao.confirmada === true) +
+      Number(cancelamento.cancelada === true);
+
+    expect(totalSucessos).toBe(1);
+
+    // Consultar o estado persistido no SQLite.
+    const estado = await runInDurableObject(
+      contador,
+      (_instancia, state) => {
+        return state.storage.sql.exec(
+          "SELECT status FROM reservas WHERE id = ?",
+          reserva.reservaId
+        ).toArray()[0];
+      }
+    );
+
+    if (confirmacao.confirmada) {
+      expect(estado.status).toBe("confirmada");
+    } else {
+      expect(estado.status).toBe("cancelada");
+    }
+
+    // Conferir que o contador permaneceu consistente.
+    const novaReserva = await contador.reservar();
+
+    expect(novaReserva.permitido).toBe(true);
+
+    expect(novaReserva.utilizadas).toBe(
+      confirmacao.confirmada ? 2 : 1
+    );
   });
 });

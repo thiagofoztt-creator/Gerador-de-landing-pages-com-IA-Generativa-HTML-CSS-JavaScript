@@ -863,15 +863,18 @@ export class CotaDiaria extends DurableObject {
       };
     });
   }                                       
+  
   async listarPendentesAntigas() {
-    // Margem de seguranca de 30 minutos.
     const limiteMinutos = 30;
+    const tamanhoPagina = 100;
 
     const dataLimite = new Date(
       Date.now() - limiteMinutos * 60 * 1000
     ).toISOString();
 
-    const reservas = this.ctx.storage.sql.exec(`
+    // Buscar um registro adicional para identificar
+    // se existem outras reservas pendentes.
+    const registros = this.ctx.storage.sql.exec(`
       SELECT
         id,
         dia,
@@ -881,16 +884,22 @@ export class CotaDiaria extends DurableObject {
       FROM reservas
       WHERE status = 'reservada'
         AND criada_em <= ?
-      ORDER BY criada_em ASC
-      LIMIT 100
-    `, dataLimite).toArray();
+      ORDER BY criada_em ASC, id ASC
+      LIMIT ?
+    `, dataLimite, tamanhoPagina + 1).toArray();
+
+    const haMais = registros.length > tamanhoPagina;
+
+    const reservas = registros.slice(0, tamanhoPagina);
 
     return {
       totalEncontradas: reservas.length,
       criterioMinutos: limiteMinutos,
+      haMais,
       reservas
     };
-  }                                          
+  }
+                                       
     });
   }
 }

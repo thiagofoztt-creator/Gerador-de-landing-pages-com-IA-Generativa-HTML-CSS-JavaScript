@@ -865,38 +865,106 @@ export class CotaDiaria extends DurableObject {
     });
   }
 
-  async listarPendentesAntigas() {
+ 
+  async listarPendentesAntigas(cursor = null) {
     const limiteMinutos = 30;
     const tamanhoPagina = 100;
 
-    const dataLimite = new Date(
+    const dataLimiteAtual = new Date(
       Date.now() - limiteMinutos * 60 * 1000
     ).toISOString();
 
-    const registros = this.ctx.storage.sql.exec(`
-      SELECT
-        id,
-        dia,
-        status,
-        criada_em,
-        atualizada_em
-      FROM reservas
-      WHERE status = 'reservada'
-        AND criada_em <= ?
-      ORDER BY criada_em ASC, id ASC
-      LIMIT ?
-    `, dataLimite, tamanhoPagina + 1).toArray();
+    let dataLimite = dataLimiteAtual;
+    let ultimaData = null;
+    let ultimoId = null;
+
+    // Continuar uma consulta anterior.
+    if (cursor !== null) {
+      if (
+        typeof cursor !== "object" ||
+        Array.isArray(cursor) ||
+        typeof cursor.dataLimite !== "string" ||
+        typeof cursor.criada_em !== "string" ||
+        typeof cursor.id !== "string" ||
+        !cursor.id ||
+        !Number.isFinite(Date.parse(cursor.dataLimite)) ||
+        !Number.isFinite(Date.parse(cursor.criada_em)) ||
+        cursor.dataLimite > dataLimiteAtual ||
+        cursor.criada_em > cursor.dataLimite
+      ) {
+        throw new Error("Cursor de paginacao invalido.");
+      }
+
+      dataLimite = cursor.dataLimite;
+      ultimaData = cursor.criada_em;
+      ultimoId = cursor.id;
+    }
+
+    let registros;
+
+    if (ultimaData === null) {
+      // Primeira pagina.
+      registros = this.ctx.storage.sql.exec(`
+        SELECT
+          id,
+          dia,
+          status,
+          criada_em,
+          atualizada_em
+        FROM reservas
+        WHERE status = 'reservada'
+          AND criada_em <= ?
+        ORDER BY criada_em ASC, id ASC
+        LIMIT ?
+      `, dataLimite, tamanhoPagina + 1).toArray();
+
+    } else {
+      // Paginas seguintes, sem repetir o ultimo item.
+      registros = this.ctx.storage.sql.exec(`
+        SELECT
+          id,
+          dia,
+          status,
+          criada_em,
+          atualizada_em
+        FROM reservas
+        WHERE status = 'reservada'
+          AND criada_em <= ?
+          AND (
+            criada_em > ?
+            OR (criada_em = ? AND id > ?)
+          )
+        ORDER BY criada_em ASC, id ASC
+        LIMIT ?
+      `,
+        dataLimite,
+        ultimaData,
+        ultimaData,
+        ultimoId,
+        tamanhoPagina + 1
+      ).toArray();
+    }
 
     const haMais = registros.length > tamanhoPagina;
     const reservas = registros.slice(0, tamanhoPagina);
+
+    const ultimaReserva = reservas[reservas.length - 1];
+
+    const proximoCursor = haMais && ultimaReserva
+      ? {
+          dataLimite,
+          criada_em: ultimaReserva.criada_em,
+          id: ultimaReserva.id
+        }
+      : null;
 
     return {
       totalEncontradas: reservas.length,
       criterioMinutos: limiteMinutos,
       haMais,
+      proximoCursor,
       reservas
     };
   }
 }
-
 

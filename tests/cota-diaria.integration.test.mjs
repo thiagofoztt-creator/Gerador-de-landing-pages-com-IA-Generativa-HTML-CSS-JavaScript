@@ -632,4 +632,100 @@ describe("Cota diaria - Durable Object SQLite real", () => {
     // na segunda pagina.
     expect(idsPagina2).not.toContain("reserva-101");
   });
+    
+  it("rejeita cursores invalidos sem alterar as reservas", async () => {
+    const nome = `teste-cursor-invalido-${crypto.randomUUID()}`;
+    const contador = env.COTA_DIARIA.getByName(nome);
+
+    // Criar uma reserva verdadeira no SQLite.
+    const reserva = await contador.reservar();
+
+    expect(reserva.permitido).toBe(true);
+
+    const dataValida = "2020-01-01T00:00:00.000Z";
+
+    const casosInvalidos = [
+      // Tipo incorreto.
+      "cursor-invalido",
+      123,
+      [],
+      {},
+
+      // Campos obrigatorios ausentes.
+      {
+        dataLimite: dataValida,
+        criada_em: dataValida
+      },
+
+      // Identificador vazio.
+      {
+        dataLimite: dataValida,
+        criada_em: dataValida,
+        id: ""
+      },
+
+      // Datas com formato invalido.
+      {
+        dataLimite: "data-invalida",
+        criada_em: dataValida,
+        id: "reserva-001"
+      },
+      {
+        dataLimite: dataValida,
+        criada_em: "data-invalida",
+        id: "reserva-001"
+      },
+
+      // Data da reserva posterior ao limite.
+      {
+        dataLimite: dataValida,
+        criada_em: "2021-01-01T00:00:00.000Z",
+        id: "reserva-001"
+      },
+
+      // Limite de data no futuro.
+      {
+        dataLimite: "2099-01-01T00:00:00.000Z",
+        criada_em: dataValida,
+        id: "reserva-001"
+      }
+    ];
+
+    // Cada cursor invalido deve produzir erro.
+    for (const cursor of casosInvalidos) {
+      await expect(
+        contador.listarPendentesAntigas(cursor)
+      ).rejects.toThrow(
+        "Cursor de paginacao invalido."
+      );
+    }
+
+    // Verificar que nenhuma reserva foi alterada.
+    const registros = await runInDurableObject(
+      contador,
+      (_instancia, state) => {
+        return {
+          reservas: state.storage.sql.exec(
+            "SELECT id, status FROM reservas"
+          ).toArray(),
+          cotas: state.storage.sql.exec(
+            "SELECT utilizadas FROM cotas"
+          ).toArray()
+        };
+      }
+    );
+
+    expect(registros.reservas).toHaveLength(1);
+
+    expect(registros.reservas[0].id)
+      .toBe(reserva.reservaId);
+
+    expect(registros.reservas[0].status)
+      .toBe("reservada");
+
+    expect(registros.cotas).toHaveLength(1);
+
+    expect(registros.cotas[0].utilizadas)
+      .toBe(1);
+  });
 });

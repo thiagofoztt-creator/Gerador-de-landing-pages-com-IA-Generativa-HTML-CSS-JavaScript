@@ -892,18 +892,11 @@ export class CotaDiaria extends DurableObject {
 
     const reservas = registros.slice(0, tamanhoPagina);
 
-    return {
+        return {
       totalEncontradas: reservas.length,
       criterioMinutos: limiteMinutos,
       haMais,
       reservas
     };
   }
-                                       
-    });
-  }
 }
-
-
-
-

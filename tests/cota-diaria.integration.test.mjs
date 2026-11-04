@@ -1,4 +1,4 @@
-
+import { runInDurableObject } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 import { env } from "cloudflare:workers";
 
@@ -73,7 +73,52 @@ describe("Cota diaria - Durable Object SQLite real", () => {
 
     expect(tentativaExtra.permitido).toBe(false);
     expect(tentativaExtra.utilizadas).toBe(50);
+
+    
+  it("inicia nova cota sem carregar o limite de ontem", async () => {
+    const nome = `teste-novo-dia-${crypto.randomUUID()}`;
+    const contador = env.COTA_DIARIA.getByName(nome);
+
+    const hoje = new Date().toISOString().slice(0, 10);
+
+    const ontem = new Date(
+      Date.now() - 24 * 60 * 60 * 1000
+    ).toISOString().slice(0, 10);
+
+    expect(ontem).not.toBe(hoje);
+
+    // Registrar uma cota esgotada no dia anterior.
+    await runInDurableObject(contador, (_instancia, state) => {
+      state.storage.sql.exec(
+        "INSERT INTO cotas (dia, utilizadas) VALUES (?, ?)",
+        ontem,
+        50
+      );
+    });
+
+    // O dia atual deve comecar com uma nova cota.
+    const primeiraReserva = await contador.reservar();
+
+    expect(primeiraReserva.permitido).toBe(true);
+    expect(primeiraReserva.utilizadas).toBe(1);
+    expect(primeiraReserva.limite).toBe(50);
+
+    // Verificar os dois registros no SQLite real.
+    const registros = await runInDurableObject(
+      contador,
+      (_instancia, state) => {
+        return state.storage.sql.exec(
+          "SELECT dia, utilizadas FROM cotas ORDER BY dia"
+        ).toArray();
+      }
+    );
+
+    expect(registros).toEqual([
+      { dia: ontem, utilizadas: 50 },
+      { dia: hoje, utilizadas: 1 }
+    ]);
   });
+
 
   });
 });

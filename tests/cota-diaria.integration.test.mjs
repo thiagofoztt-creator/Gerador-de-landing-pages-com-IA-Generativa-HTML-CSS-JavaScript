@@ -249,5 +249,49 @@ describe("Cota diaria - Durable Object SQLite real", () => {
     expect(novaReserva.utilizadas).toBe(
       confirmacao.confirmada ? 2 : 1
     );
+  
+  it("identifica reserva que permaneceu pendente", async () => {
+    const nome = `teste-pendente-${crypto.randomUUID()}`;
+    const contador = env.COTA_DIARIA.getByName(nome);
+
+    // Simular uma geracao iniciada.
+    const reserva = await contador.reservar();
+
+    expect(reserva.permitido).toBe(true);
+    expect(reserva.reservaId).toBeTruthy();
+
+    // Simular interrupcao antes de confirmar ou cancelar.
+    // Nenhum dos dois metodos sera chamado.
+
+    // Consultar o estado persistido no SQLite.
+    const registro = await runInDurableObject(
+      contador,
+      (_instancia, state) => {
+        return state.storage.sql.exec(
+          `SELECT id, dia, status, criada_em
+           FROM reservas
+           WHERE id = ?`,
+          reserva.reservaId
+        ).toArray()[0];
+      }
+    );
+
+    expect(registro).toBeDefined();
+    expect(registro.id).toBe(reserva.reservaId);
+    expect(registro.status).toBe("reservada");
+
+    // Verificar que a utilizacao ainda esta contabilizada.
+    const contadorAtual = await runInDurableObject(
+      contador,
+      (_instancia, state) => {
+        return state.storage.sql.exec(
+          "SELECT utilizadas FROM cotas WHERE dia = ?",
+          reserva.dia ??
+            new Date().toISOString().slice(0, 10)
+        ).toArray()[0];
+      }
+    );
+
+    expect(contadorAtual.utilizadas).toBe(1);
   });
 });

@@ -164,5 +164,38 @@ describe("Cota diaria - Durable Object SQLite real", () => {
     expect(terceira.permitido).toBe(true);
     expect(terceira.utilizadas).toBe(2);
   });
+    
+  it("impede dois estornos simultaneos da mesma reserva", async () => {
+    const nome = `teste-estorno-simultaneo-${crypto.randomUUID()}`;
+    const contador = env.COTA_DIARIA.getByName(nome);
 
+    // Criar uma reserva pendente.
+    const reserva = await contador.reservar();
+
+    expect(reserva.permitido).toBe(true);
+    expect(reserva.utilizadas).toBe(1);
+
+    // Tentar cancelar a mesma reserva duas vezes.
+    const resultados = await Promise.all([
+      contador.cancelar(reserva.reservaId),
+      contador.cancelar(reserva.reservaId)
+    ]);
+
+    const cancelamentosValidos = resultados.filter(
+      (resultado) => resultado.cancelada === true
+    );
+
+    const cancelamentosRejeitados = resultados.filter(
+      (resultado) => resultado.cancelada === false
+    );
+
+    expect(cancelamentosValidos).toHaveLength(1);
+    expect(cancelamentosRejeitados).toHaveLength(1);
+
+    // A cota deve ter sido devolvida somente uma vez.
+    const novaReserva = await contador.reservar();
+
+    expect(novaReserva.permitido).toBe(true);
+    expect(novaReserva.utilizadas).toBe(1);
+  });
 });

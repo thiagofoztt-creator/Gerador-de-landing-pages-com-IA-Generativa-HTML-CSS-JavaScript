@@ -624,5 +624,96 @@ describe("Protecao de origem da rota /gerar", () => {
     } finally {
       vi.restoreAllMocks();
     }
+  
+  it("cancela reserva quando Gemini retorna HTML incompleto", async () => {
+    const reservaId = crypto.randomUUID();
+
+    const contador = {
+      reservar: vi.fn(async () => ({
+        permitido: true,
+        reservaId,
+        utilizadas: 1,
+        limite: 50
+      })),
+      confirmar: vi.fn(async () => ({
+        confirmada: true
+      })),
+      cancelar: vi.fn(async () => ({
+        cancelada: true
+      }))
+    };
+
+    const env = {
+      ...ambienteTeste(),
+      TURNSTILE_SECRET_KEY: "segredo-ficticio",
+      LIMITE_GERACAO: {
+        limit: async () => ({ success: true })
+      },
+      COTA_DIARIA: {
+        getByName: () => contador
+      }
+    };
+
+    const fetchSimulado = vi.spyOn(globalThis, "fetch")
+      .mockImplementation(async (endereco) => {
+        if (String(endereco).includes("siteverify")) {
+          return Response.json({
+            success: true,
+            hostname: "preview.example"
+          });
+        }
+
+        if (String(endereco).includes("generateContent")) {
+          return Response.json({
+            candidates: [{
+              content: {
+                parts: [{
+                  text: "<html><body>Pagina incompleta"
+                }]
+              }
+            }]
+          });
+        }
+
+        throw new Error("Endereco externo inesperado");
+      });
+
+    try {
+      const resposta = await worker.fetch(
+        new Request(`${origem}/gerar`, {
+          method: "POST",
+          headers: {
+            Origin: origem,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            descricao: "Criar uma landing page de tecnologia",
+            turnstileToken: "token-ficticio"
+          })
+        }),
+        env
+      );
+
+      expect(resposta.status).toBe(502);
+
+      expect(await resposta.json()).toEqual({
+        erro: "A IA não retornou HTML completo."
+      });
+
+      expect(contador.reservar).toHaveBeenCalledTimes(1);
+
+      expect(contador.confirmar).not.toHaveBeenCalled();
+
+      expect(contador.cancelar).toHaveBeenCalledTimes(1);
+      expect(contador.cancelar).toHaveBeenCalledWith(
+        reservaId
+      );
+
+      // Turnstile e Gemini, sem outras chamadas.
+      expect(fetchSimulado).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
+
 });

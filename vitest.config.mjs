@@ -18,7 +18,7 @@ export default defineConfig({
     maxWorkers: 1,
     coverage: {
       provider: "istanbul",
-      include: ["worker/**/*.js"],
+      include: ["worker/**/*.js", "public/js/**/*.js"],
       reporter: ["text", "lcov"],
       reportsDirectory: "./coverage"
     }

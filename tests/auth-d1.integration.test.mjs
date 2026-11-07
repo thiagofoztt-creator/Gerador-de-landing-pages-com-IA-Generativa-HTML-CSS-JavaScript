@@ -2,12 +2,11 @@
 import { describe, it, expect } from "vitest";
 import { env } from "cloudflare:test";
 import worker from "../worker/index.js";
-
 import schema from "./fixtures/auth_schema.sql?raw";
-
 import { registerUser } from "../worker/auth/register.js";
 import { loginUser } from "../worker/auth/login.js";
 import { getSession } from "../worker/auth/session.js";
+import { DurableObject } from "cloudflare:workers";
 
 describe("Integracao real com D1 isolado", () => {
   it("valida cadastro, login, sessao e logout HTTP", async () => {

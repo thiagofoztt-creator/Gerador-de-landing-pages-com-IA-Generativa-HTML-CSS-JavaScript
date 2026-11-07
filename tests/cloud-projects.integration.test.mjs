@@ -135,7 +135,11 @@ describe('Painel remoto opcional sem perda de projetos locais', () => {
     await vi.waitFor(() => expect(ui.nodes.get('cloud-more').hidden).toBe(false));
     await vi.waitFor(() => expect(ui.nodes.get('cloud-more').disabled).toBe(false));
     await ui.nodes.get('cloud-more').fire('click');
-    await vi.waitFor(() => expect(ui.nodes.get('cloud-projects').children).toHaveLength(2));
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
+    await vi.waitFor(() => {
+      const count = ui.nodes.get('cloud-projects').children.length;
+      if (count !== 2) throw new Error('Cards=' + count + ' status=' + ui.nodes.get('cloud-status').textContent);
+    });
     expect(fetchSpy.mock.calls[1][0]).toContain(encodeURIComponent(next));
     expect(ui.nodes.get('cloud-more').hidden).toBe(true);
     expect(ui.localStorage.setItem).not.toHaveBeenCalled();

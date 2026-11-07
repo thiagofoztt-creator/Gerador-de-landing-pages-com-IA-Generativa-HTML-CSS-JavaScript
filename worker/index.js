@@ -5,6 +5,7 @@ import {getSession,revokeSession,readSessionCookie,clearSessionCookie} from "./a
 import { checkAuthRateLimit } from "./auth/rate-limit.js";
 import { validateAuthTurnstile } from "./auth/turnstile.js";
 import { PLANOS } from "./billing/plans.js";
+import { handleProjects } from "./projects/api.js";
 
 const MODELO = "gemini-2.5-flash";
 
@@ -27,6 +28,11 @@ export default {
     const url = new URL(request.url);
 
     
+    // Projetos privados D1: recurso permanece desabilitado ate homologacao.
+    if (url.pathname === "/api/projects" || url.pathname.startsWith("/api/projects/")) {
+      return handleProjects(request, env);
+    }
+
     // Catalogo publico de planos: consulta sem pagamento ou liberacao de creditos.
     if (url.pathname === "/api/plans") {
       if (request.method !== "GET" && request.method !== "HEAD") {

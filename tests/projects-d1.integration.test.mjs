@@ -114,6 +114,30 @@ describe("Projetos privados no D1 isolado", () => {
     expect((await call(db, "/api/projects/" + idA, "GET", cookieA)).status).toBe(404);
     expect((await call(db, "/api/projects/" + idA, "DELETE", cookieA)).status).toBe(404);
 
+    // Paginacao com cursor: nao repetir nem revelar projetos entre usuarios.
+    const entries = Array.from({ length: 51 }, (_, i) => {
+      const id = "00000000-0000-4000-8000-" + String(i + 1).padStart(12, "0");
+      const updated = new Date(Date.UTC(2026, 0, 1, 0, 0, i + 1)).toISOString();
+      return db.prepare(
+        "INSERT INTO user_projects (id,user_id,name,html,updated_at) VALUES (?,?,?,?,?)"
+      ).bind(id, "owner-a", "Projeto " + i, "<h1>Teste</h1>", updated);
+    });
+    await db.batch(entries);
+    const firstPage = await read(await call(db, "/api/projects", "GET", cookieA));
+    expect(firstPage.status).toBe(200);
+    expect(firstPage.body.projects).toHaveLength(50);
+    expect(firstPage.body.nextCursor).toMatch(/^2026-01-01T.*\\|[0-9a-f-]{36}$/i);
+    const secondPage = await read(await call(
+      db, "/api/projects?cursor=" + encodeURIComponent(firstPage.body.nextCursor), "GET", cookieA
+    ));
+    expect(secondPage.status).toBe(200);
+    expect(secondPage.body.projects).toHaveLength(1);
+    expect(secondPage.body.nextCursor).toBeNull();
+    const ids = [...firstPage.body.projects, ...secondPage.body.projects].map(p => p.id);
+    expect(new Set(ids).size).toBe(51);
+    expect((await read(await call(db, "/api/projects", "GET", cookieB))).body.projects)
+      .toHaveLength(0);
+
     const noCache = await call(db, "/api/projects", "GET", cookieA);
     expect(noCache.headers.get("Cache-Control")).toBe("no-store");
     expect(noCache.headers.get("X-Content-Type-Options")).toBe("nosniff");

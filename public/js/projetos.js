@@ -160,4 +160,10 @@
   }
 
   render();
+  if (document.getElementById('cloud-projects')) {
+    import('./cloud-projects.js').catch(() => {
+      const status = document.getElementById('cloud-status');
+      if (status) status.textContent = 'Painel da nuvem indisponível. Projetos locais preservados.';
+    });
+  }
 })();

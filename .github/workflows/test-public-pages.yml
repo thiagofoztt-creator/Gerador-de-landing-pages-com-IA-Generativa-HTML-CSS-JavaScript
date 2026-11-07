@@ -6,6 +6,8 @@ on:
       - desenvolvimento-sites-v2
     paths:
       - ".github/workflows/test-public-pages.yml"
+      - "public/planos/**"
+      - "public/index.html"
   workflow_dispatch:
 
 permissions:
@@ -40,6 +42,11 @@ jobs:
           grep -qi '<html' producao.html
           consultar "$PREVIEW/" preview.html 200
           grep -qi 'Thiago IA' preview.html
+          consultar "$PREVIEW/planos/" planos.html 200
+          grep -q "19,90" planos.html
+          grep -q "49,90" planos.html
+          grep -q "119,90" planos.html
+          grep -q "Assinaturas ainda não disponíveis" planos.html
           consultar "$PREVIEW/editor.html" editor.html 200
           grep -q 'js/editor.js' editor.html
           consultar "$PREVIEW/projetos.html" projetos.html 200

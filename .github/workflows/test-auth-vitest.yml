@@ -7,6 +7,8 @@ on:
     paths:
       - "worker/**"
       - "tests/**"
+      - "public/planos/**"
+      - "public/index.html"
       - "vitest.config.mjs"
       - "wrangler.jsonc"
       - "package.json"
@@ -50,8 +52,8 @@ jobs:
       - name: Testar autenticacao e sessoes com Node.js
         run: node --test worker/auth/*.test.mjs
 
-      - name: Testar interface do gerador
-        run: node --test tests/gerador-ui.test.mjs
+      - name: Testar interface do gerador e catalogo de planos
+        run: node --test tests/gerador-ui.test.mjs tests/pricing-page.test.mjs
 
       - name: Configurar Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2

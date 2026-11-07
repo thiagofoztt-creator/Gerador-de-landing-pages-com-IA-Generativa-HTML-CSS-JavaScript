@@ -136,7 +136,8 @@
     code.readOnly = true;
   }
   if (cloudMode) {
-    (async () => {
+    // A operacao trata suas excecoes internamente; nao propagar Promise ao navegador.
+    void (async () => {
       try {
         if (projectId !== null) throw new Error('Selecione apenas um projeto por vez.');
         cloudApi = await import('./cloud-api.js');

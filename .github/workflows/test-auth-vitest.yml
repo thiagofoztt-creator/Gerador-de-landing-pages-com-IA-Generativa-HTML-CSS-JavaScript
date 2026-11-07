@@ -72,7 +72,7 @@ jobs:
             "@vitest/coverage-istanbul@4.1.12"
 
       - name: Executar integracao, autorizacao e medir cobertura
-        run: ./node_modules/.bin/vitest run --coverage tests/auth-d1.integration.test.mjs tests/gerar-origin.integration.test.mjs tests/plans.integration.test.mjs tests/auth-http-security.integration.test.mjs tests/auth-access-control.integration.test.mjs tests/cota-diaria.integration.test.mjs tests/coverage-security.integration.test.mjs tests/coverage-routes.integration.test.mjs tests/frontend-js.integration.test.mjs
+        run: ./node_modules/.bin/vitest run --coverage tests/auth-d1.integration.test.mjs tests/gerar-origin.integration.test.mjs tests/plans.integration.test.mjs tests/auth-http-security.integration.test.mjs tests/auth-access-control.integration.test.mjs tests/cota-diaria.integration.test.mjs tests/coverage-security.integration.test.mjs tests/coverage-routes.integration.test.mjs tests/frontend-js.integration.test.mjs tests/projects-d1.integration.test.mjs
 
       - name: Validar relatorio LCOV para futura integracao com SonarQube
         run: |

@@ -1,0 +1,50 @@
+name: Verificar site Thiago IA por HTTP
+
+on:
+  push:
+    branches:
+      - desenvolvimento-sites-v2
+    paths:
+      - ".github/workflows/test-public-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificar-site:
+    name: Consultar paginas publicas
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Verificar disponibilidade HTTP e recursos estaticos
+        shell: bash
+        env:
+          SITE: https://gerador-de-landing-pages-com-ia.thiagofoztt.workers.dev
+          PREVIEW: https://desenvolvimento-sites-v2-gerador-de-landing-pages-com-ia.thiagofoztt.workers.dev
+        run: |
+          set -euo pipefail
+          consultar() {
+            local endereco="$1" arquivo="$2" esperado="$3"
+            local codigo
+            echo "Consultando: $endereco"
+            codigo=$(curl -sS -L --retry 2 --retry-delay 2 --max-time 20 \
+              -o "$arquivo" -w '%{http_code}' "$endereco")
+            echo "HTTP $codigo"
+            if [ "$codigo" != "$esperado" ]; then
+              echo "::error::Esperado HTTP $esperado, recebido $codigo em $endereco"
+              return 1
+            fi
+          }
+          consultar "$SITE/" producao.html 200
+          grep -qi '<html' producao.html
+          consultar "$PREVIEW/" preview.html 200
+          grep -qi 'Thiago IA' preview.html
+          consultar "$PREVIEW/editor.html" editor.html 200
+          grep -q 'js/editor.js' editor.html
+          consultar "$PREVIEW/projetos.html" projetos.html 200
+          grep -q 'js/projetos.js' projetos.html
+          consultar "$PREVIEW/js/script.js" gerador.js 200
+          grep -q 'DOMContentLoaded' gerador.js
+          consultar "$PREVIEW/api/auth/login" login-get.txt 405
+          echo "Verificacoes HTTP concluídas com sucesso."

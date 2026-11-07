@@ -16,7 +16,7 @@ function fromHex(hex) {
 
   return Uint8Array.from(
     hex.match(/.{2}/g),
-    b => parseInt(b, 16)
+    b => Number.parseInt(b, 16)
   );
 }
 

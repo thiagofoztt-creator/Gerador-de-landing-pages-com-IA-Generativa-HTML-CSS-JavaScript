@@ -3,6 +3,20 @@ import { hashPassword } from "./password.js";
 
 const encoder = new TextEncoder();
 
+// Validacao linear: evita backtracking e entradas com arrobas extras.
+function isValidEmail(email) {
+  if (!email || email.length > 254) return false;
+  const at = email.indexOf("@");
+  if (at < 1 || email.lastIndexOf("@") !== at) return false;
+  const domain = email.slice(at + 1);
+  const lastDot = domain.lastIndexOf(".");
+  if (lastDot < 1 || lastDot === domain.length - 1) return false;
+  for (const char of email) {
+    if (/\s/u.test(char)) return false;
+  }
+  return true;
+}
+
 export async function registerUser(db, input) {
   if (!db) {
     throw new Error("Banco indisponível.");
@@ -24,10 +38,7 @@ export async function registerUser(db, input) {
     return { status: 400, error: "Nome inválido." };
   }
 
-  if (
-    email.length > 254 ||
-    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-  ) {
+  if (!isValidEmail(email)) {
     return { status: 400, error: "E-mail inválido." };
   }
 

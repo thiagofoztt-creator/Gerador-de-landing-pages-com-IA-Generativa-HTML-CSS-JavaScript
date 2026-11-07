@@ -123,3 +123,24 @@ test("Cadastro impede operação sem banco", async () => {
     /Banco indisponível/
   );
 });
+
+test("Cadastro rejeita emails sem dominio ou com arrobas repetidas", async () => {
+  const banco = criarBancoSimulado();
+  for (const email of [
+    "usuario@",
+    "usuario@dominio.",
+    "usuario@.com",
+    "usuario@@dominio.com",
+    "usuario nome@dominio.com",
+    "usuario@dominio.com ",
+    "a@dominio".padEnd(260, "x")
+  ]) {
+    const resultado = await registerUser(banco.db, {
+      name: "Usuário Teste",
+      email,
+      password: SENHA
+    });
+    assert.equal(resultado.status, 400, email);
+  }
+  assert.equal(banco.registros.length, 0);
+});

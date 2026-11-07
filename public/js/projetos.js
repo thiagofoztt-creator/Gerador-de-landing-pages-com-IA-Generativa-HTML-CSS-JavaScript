@@ -14,9 +14,20 @@
     } catch { return []; }
   };
   const write = projects => localStorage.setItem(KEY, JSON.stringify(projects));
-  const uuid = () => (typeof crypto.randomUUID === 'function'
-    ? crypto.randomUUID()
-    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
+  // Gera identificadores exclusivamente com fonte criptograficamente segura.
+  function uuid() {
+    if (globalThis.crypto?.randomUUID) {
+      return globalThis.crypto.randomUUID();
+    }
+    if (!globalThis.crypto?.getRandomValues) {
+      throw new Error('Este navegador não oferece geração segura de identificadores.');
+    }
+    const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
   const notify = text => { message.textContent = text; };
 
   // Migração única do HTML usado antes da implementação de múltiplos projetos.

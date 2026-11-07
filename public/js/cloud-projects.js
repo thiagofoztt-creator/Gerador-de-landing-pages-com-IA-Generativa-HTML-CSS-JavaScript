@@ -60,7 +60,9 @@ if (area && status && refresh && localArea) {
       const matching = saved.find(p => p && link.getAttribute('href') ===
         'editor.html?project=' + encodeURIComponent(p.id));
       if (!matching) continue;
-      const action = makeButton('Copiar para nuvem', () => {\n        void importCopy(matching, action);\n      });
+      const action = makeButton('Copiar para nuvem', () => {
+        void importCopy(matching, action);
+      });
       action.dataset.cloudCopy = 'true';
       action.setAttribute('data-cloud-copy', '');
       controls.append(action);

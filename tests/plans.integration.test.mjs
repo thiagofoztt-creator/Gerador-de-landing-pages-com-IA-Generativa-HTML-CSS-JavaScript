@@ -20,13 +20,21 @@ describe("Catalogo publico de planos — sem checkout", () => {
     });
   });
 
-  it("recusa POST para impedir compra ou assinatura", async () => {
-    const response = await worker.fetch(
-      new Request(BASE + "/api/plans", { method: "POST", body: "{}" }),
-      {}
-    );
-    expect(response.status).toBe(405);
-  });
+  it.each(["POST", "PUT", "PATCH", "DELETE"])(
+    "recusa metodo %s para impedir compra ou alteracao de planos",
+    async method => {
+      const response = await worker.fetch(
+        new Request(BASE + "/api/plans", {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: "{}"
+        }),
+        {}
+      );
+      expect(response.status).toBe(405);
+      expect(await response.json()).toEqual({ erro: "Método não permitido." });
+    }
+  );
 
   it("responde HEAD sem expor dados de usuario", async () => {
     const response = await worker.fetch(new Request(BASE + "/api/plans", { method: "HEAD" }), {});

@@ -965,7 +965,8 @@ export class CotaDiaria extends DurableObject {
       proximoCursor,
       reservas
     };
-    
+  }
+
   async consultarEstadoReserva(reservaId) {
     if (
       typeof reservaId !== "string" ||
@@ -1000,4 +1001,3 @@ export class CotaDiaria extends DurableObject {
     };
   }
 }
-

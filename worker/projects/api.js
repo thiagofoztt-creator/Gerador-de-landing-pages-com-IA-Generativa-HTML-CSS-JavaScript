@@ -59,7 +59,7 @@ async function readPayload(request) {
 }
 
 function projectRows(db, userId, cursor) {
-  const fields = "SELECT id, name, created_at AS createdAt, updated_at AS updatedAt FROM user_projects WHERE user_id = ?";
+  const fields = "SELECT id, name, created_at AS createdAt, updated_at AS updatedAt FROM projects WHERE user_id = ?";
   if (!cursor) {
     return db.prepare(fields + " ORDER BY updated_at DESC, id DESC LIMIT 51").bind(userId).all();
   }
@@ -72,7 +72,7 @@ function projectRows(db, userId, cursor) {
 async function selectOwned(db, userId, id) {
   return db.prepare(
     "SELECT id, name, html, revision, created_at AS createdAt, updated_at AS updatedAt" +
-    " FROM user_projects WHERE user_id = ? AND id = ? LIMIT 1"
+    " FROM projects WHERE user_id = ? AND id = ? LIMIT 1"
   ).bind(userId, id).first();
 }
 
@@ -134,7 +134,7 @@ export async function handleProjects(request, env) {
 
     if (!isCollection && method === "DELETE") {
       const result = await env.DB.prepare(
-        "DELETE FROM user_projects WHERE id = ? AND user_id = ?"
+        "DELETE FROM projects WHERE id = ? AND user_id = ?"
       ).bind(id, userId).run();
       return result.meta?.changes > 0
         ? json({ excluido: true })
@@ -154,14 +154,14 @@ export async function handleProjects(request, env) {
     if (isCollection) {
       const newId = crypto.randomUUID();
       await env.DB.prepare(
-        "INSERT INTO user_projects (id, user_id, name, html) VALUES (?, ?, ?, ?)"
+        "INSERT INTO projects (id, user_id, name, html) VALUES (?, ?, ?, ?)"
       ).bind(newId, userId, name, html).run();
       const project = await selectOwned(env.DB, userId, newId);
       return json({ project }, 201);
     }
 
     const result = await env.DB.prepare(
-      "UPDATE user_projects SET name = ?, html = ?, revision = revision + 1," +
+      "UPDATE projects SET name = ?, html = ?, revision = revision + 1," +
       " updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')" +
       " WHERE id = ? AND user_id = ? AND revision = ?"
     ).bind(name, html, id, userId, expectedRevision).run();

@@ -3,7 +3,7 @@ import { env } from "cloudflare:test";
 import worker from "../worker/index.js";
 import { createSession } from "../worker/auth/session.js";
 import authSchema from "./fixtures/auth_schema.sql?raw";
-import projectsSchema from "../migrations/0001_user_projects.sql?raw";
+import projectsSchema from "../migrations/0001_projects_hml.sql?raw";
 
 const BASE = "https://auth-test.example";
 const ENABLED = "true";
@@ -41,6 +41,19 @@ describe("Projetos privados no D1 isolado", () => {
     const db = env.DB;
     await apply(db, authSchema);
     await apply(db, projectsSchema);
+    // A base isolada deve corresponder ao banco thiagoia-hml e nao criar tabela paralela.
+    const columns = (await db.prepare("PRAGMA table_info(projects)").all()).results || [];
+    expect(columns.map(column => column.name)).toEqual([
+      "id", "user_id", "name", "html", "revision", "created_at", "updated_at"
+    ]);
+    const relations = (await db.prepare("PRAGMA foreign_key_list(projects)").all()).results || [];
+    expect(relations.some(fk => fk.from === "user_id" && fk.table === "users")).toBe(true);
+    const indexes = (await db.prepare("PRAGMA index_list(projects)").all()).results || [];
+    expect(indexes.some(index => index.name === "idx_projects_user_updated")).toBe(true);
+    const duplicate = await db.prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name='user_projects'"
+    ).first();
+    expect(duplicate).toBeNull();
     await db.prepare("INSERT INTO users (id,email,display_name) VALUES (?,?,?)")
       .bind("owner-a", "owner-a@example.test", "Usuario A").run();
     await db.prepare("INSERT INTO users (id,email,display_name) VALUES (?,?,?)")
@@ -126,7 +139,7 @@ describe("Projetos privados no D1 isolado", () => {
       const id = "00000000-0000-4000-8000-" + String(i + 1).padStart(12, "0");
       const updated = new Date(Date.UTC(2026, 0, 1, 0, 0, i + 1)).toISOString();
       return db.prepare(
-        "INSERT INTO user_projects (id,user_id,name,html,updated_at) VALUES (?,?,?,?,?)"
+        "INSERT INTO projects (id,user_id,name,html,updated_at) VALUES (?,?,?,?,?)"
       ).bind(id, "owner-a", "Projeto " + i, "<h1>Teste</h1>", updated);
     });
     await db.batch(entries);

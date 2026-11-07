@@ -1,59 +1,61 @@
-# Projetos D1 por usuario — ativacao controlada
+# Projetos por usuario — D1 de homologacao
 
-Status: **implementacao em branch de desenvolvimento; D1 remoto nao migrado**.
+Status: **API e interface implementadas na branch desenvolvimento-sites-v2; ainda nao ativadas no ambiente remoto.**
 
-## Contrato da API
+## Bancos e isolamento
 
-Todas as rotas usam sessao em cookie HTTP-only `__Host-thiagoia_session`.
-Nunca aceitam `user_id` enviado pelo cliente. O filtro `user_id` e obrigatorio
-nas operacoes de leitura, edicao e exclusao.
+- `thiagoia-dev`: banco preexistente com usuarios/sessoes e tabela `projects` SEM `revision`. Nao executar a migracao nesse banco.
+- `thiagoia-hml`: banco independente criado pelo usuario no Cloudflare. Foram criados manualmente `users`, `user_credentials`, `user_sessions`, `idx_sessions_user`, `projects` (com `revision`) e `idx_projects_user_updated`. A execucao do ultimo indice foi informada como concluida; conferir o schema antes da ativacao.
+- A configuracao `wrangler.jsonc` ainda aponta o Preview para `thiagoia-dev`; **nao mudar nem ativar a flag ate a revisao de binding e teste em ambiente Preview**.
+- A producao nao tem binding D1 `DB` configurado no painel visto anteriormente. Nao houve alteracao em producao nem merge na `main`.
+- A tabela `user_projects` foi descartada do plano: a API e o banco de homologacao usam exclusivamente `projects`. O esquema de referencia para HML fica em `migrations/0001_projects_hml.sql`. **Nao executar esse arquivo no banco antigo.**
 
-- `GET /api/projects`: lista ate 50 metadados por pagina; `nextCursor` para pagina seguinte.
+## Esquema de homologacao
+
+`projects`: `id`, `user_id`, `name`, `html`, `revision`, `created_at`, `updated_at`.
+Chave estrangeira `user_id` referenciando `users(id)`; indice `idx_projects_user_updated` em
+`(user_id, updated_at DESC, id DESC)`. A API faz o filtro de `user_id` em todas as operacoes.
+
+## API
+
+Todas as operacoes usam sessao em cookie HttpOnly `__Host-thiagoia_session`.
+O servidor determina `user_id`; o cliente nao pode escolher proprietario.
+
+- `GET /api/projects`: lista ate 50 projetos (apenas metadados), com `nextCursor` para a proxima pagina.
 - `POST /api/projects`: cria projeto com `name` (1–80 caracteres) e `html` (1–200000 caracteres).
-- `GET /api/projects/:id`: carrega HTML e metadados do projeto do usuario.
-- `PUT /api/projects/:id`: atualiza o projeto do usuario, exigindo `expectedRevision` para impedir sobrescritas concorrentes (HTTP 409 em conflito).
-- `DELETE /api/projects/:id`: exclui projeto do usuario.
+- `GET /api/projects/:id`: carrega HTML e metadados do projeto pertencente ao usuario.
+- `PUT /api/projects/:id`: exige `expectedRevision`; impede sobrescrita concorrente com HTTP 409.
+- `DELETE /api/projects/:id`: remove somente projeto do proprietario.
 
-POST, PUT e DELETE exigem `Origin` igual a origem da requisicao (protecao CSRF).
-Payload JSON limitado a 256 KiB, com leitura incremental; campos desconhecidos
-ou `user_id` fornecido pelo cliente sao rejeitados. Projetos alheios retornam 404.
-Resposta `Cache-Control: no-store` e `X-Content-Type-Options: nosniff`.
+POST/PUT/DELETE exigem `Origin` igual a origem da requisicao. JSON limitado
+a 256 KiB, com leitura incremental; campos desconhecidos e `user_id` sao rejeitados.
+Projetos de outras contas retornam 404.
+As respostas usam `Cache-Control: no-store` e `X-Content-Type-Options: nosniff`.
 
-## Antes de liberar
+## Interface e dados locais
 
-1. Revisar e realizar backup do banco D1 de homologacao.
-2. Executar SQL em `migrations/0001_user_projects.sql` **somente no ambiente autorizado**.
-3. Confirmar que a tabela `users` e o vinculo `DB` estao corretos.
-4. Rodar testes de isolamento e de regressao na CI.
-5. Ativar `ENABLE_PROJECTS_D1=true` **somente apos** homologacao.
-6. Validar que projetos locais nao sao apagados: migracao deve ser opcional,
-   com confirmacao explicita e verificacao de resultado antes de limpar dados.
+Em `/projetos.html`, o usuario consulta seus projetos na nuvem manualmente e
+pode copiar um projeto local apos confirmacao explicita. O registro no
+`localStorage` nao e apagado. Em `/editor.html?cloud=<id>`, o editor busca
+o projeto no servidor e salva na nuvem; `?project=<id>` continua local.
+Na falha de rede, autenticacao, D1 ou conflito de revisao, nao se substitui
+o projeto local. O HTML ainda aberto no editor pode ser salvo por download.
 
-Enquanto a flag estiver desligada, a API devolve 503 e os projetos locais continuam
-funcionando. Nenhuma migracao remota ou importacao automatica faz parte desta entrega.
+## Passos antes de ativar
 
-## Observacoes
+1. Conferir no **thiagoia-hml** o resultado de `/tables`, `PRAGMA table_info(projects)`,
+   `PRAGMA index_list(projects)`, `PRAGMA foreign_key_list(projects)`.
+2. Registrar bookmark e obter backup independente do banco HML antes de alteracoes posteriores.
+3. Alterar somente a configuracao Preview para `thiagoia-hml` apos validar os bindings;
+   nunca atribuir esse banco a Production sem aprovacao explicita.
+4. Criar contas de teste ficticias por fluxo de autenticacao; nunca copiar credenciais reais.
+5. Verificar a API com duas contas autenticadas em navegador real (GET/POST/PUT/DELETE,
+   isolamento, revogacao, 409), e testar preservacao dos projetos locais.
+6. Somente apos homologacao, ativar `ENABLE_PROJECTS_D1=true` no Preview.
+   A flag permanece fechada em producao.
+7. Antes de qualquer alteracao no `thiagoia-dev`, definir plano distinto de
+   migracao com backup e preservacao de dados existentes.
 
-A interface ja tem a area "Projetos na nuvem" (em /projetos.html),
-carregada manualmente. Projetos locais nao sao enviados automaticamente:
-a copia exige confirmacao individual e nao remove o original. O editor
-abre projetos remotos usando `?cloud=<id>`, consulta o HTML no servidor
-e salva somente na nuvem. O modo `?project=<id>` continua exclusivamente
-local. Faltas de autenticacao, rede ou migracao nao acionam fallback para
-outro armazenamento, evitando sobrescritas.
-
-Atualizacoes remotas requerem o `expectedRevision` recebido no GET:
-a tabela guarda `revision` inteiro, atualizado atomicamente. Se outra
-sessao modificar antes, PUT retorna HTTP 409 sem substituir o HTML.
-O editor mantem o texto nao salvo na tela para exportacao manual.
-
-A migracao remota continua pendente e necessita backup e autorizacao.
-A feature flag `ENABLE_PROJECTS_D1` nao e alterada automaticamente;
-nenhum D1 remoto foi modificado. Usuario nao autenticado recebera
-HTTP 401 somente apos a flag estar ativada. Na fase atual, a API fechada
-retorna 503 antes de autenticar.
-
-O plano de homologacao deve testar navegador real, backup dos projetos
-locais, integracao do login e revisao de comportamento offline. Os
-testes automatizados usam D1 isolado e DOM simulado, nao substituindo
-testes end-to-end no navegador.
+Testes automatizados D1 isolados verificam a estrutura de `projects`,
+autenticacao, isolamento, paginacao e revisao. Eles **nao substituem** testes
+end-to-end com o D1 remoto.

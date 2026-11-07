@@ -34,6 +34,26 @@ funcionando. Nenhuma migracao remota ou importacao automatica faz parte desta en
 
 ## Observacoes
 
-A API e uma fundacao para sincronizacao. A interface atual permanece
-localStorage; integrar a migracao e a experiencia de sincronizacao sera
-a etapa seguinte. O banco nao foi alterado remotamente.
+A interface ja tem a area "Projetos na nuvem" (em /projetos.html),
+carregada manualmente. Projetos locais nao sao enviados automaticamente:
+a copia exige confirmacao individual e nao remove o original. O editor
+abre projetos remotos usando `?cloud=<id>`, consulta o HTML no servidor
+e salva somente na nuvem. O modo `?project=<id>` continua exclusivamente
+local. Faltas de autenticacao, rede ou migracao nao acionam fallback para
+outro armazenamento, evitando sobrescritas.
+
+Atualizacoes remotas requerem o `expectedRevision` recebido no GET:
+a tabela guarda `revision` inteiro, atualizado atomicamente. Se outra
+sessao modificar antes, PUT retorna HTTP 409 sem substituir o HTML.
+O editor mantem o texto nao salvo na tela para exportacao manual.
+
+A migracao remota continua pendente e necessita backup e autorizacao.
+A feature flag `ENABLE_PROJECTS_D1` nao e alterada automaticamente;
+nenhum D1 remoto foi modificado. Usuario nao autenticado recebera
+HTTP 401 somente apos a flag estar ativada. Na fase atual, a API fechada
+retorna 503 antes de autenticar.
+
+O plano de homologacao deve testar navegador real, backup dos projetos
+locais, integracao do login e revisao de comportamento offline. Os
+testes automatizados usam D1 isolado e DOM simulado, nao substituindo
+testes end-to-end no navegador.

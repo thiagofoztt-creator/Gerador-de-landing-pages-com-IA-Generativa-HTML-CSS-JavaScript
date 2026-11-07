@@ -224,7 +224,7 @@
 
   code.addEventListener('input', notifyChanges);
 
-  saveButton.addEventListener('click', async () => {
+  async function saveProject() {
     if (!canSave || cloudSaving) return;
     if (!code.value.trim()) {
       status.textContent = 'Não há um site para salvar.';
@@ -278,7 +278,8 @@
       saveButton.textContent = 'Erro ao salvar';
       status.textContent = 'Não foi possível salvar: ' + error.message;
     }
-  });
+  }
+  saveButton.addEventListener('click', () => { void saveProject(); });
 
   document.getElementById('download')?.addEventListener('click', () => {
     if (!code.value.trim()) { status.textContent = 'Não há código para baixar.'; return; }

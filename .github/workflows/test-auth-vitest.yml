@@ -80,5 +80,13 @@ jobs:
           grep -q '^SF:.*worker/' coverage/lcov.info
           echo "Relatorio LCOV gerado e validado em coverage/lcov.info"
 
+      - name: Armazenar relatorio LCOV para auditoria
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cobertura-worker-lcov
+          path: coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 14
+
       - name: Confirmar execucao
         run: echo "Testes de autenticacao finalizados com sucesso."

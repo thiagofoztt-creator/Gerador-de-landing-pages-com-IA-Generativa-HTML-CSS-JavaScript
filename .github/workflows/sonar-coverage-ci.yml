@@ -98,3 +98,4 @@ jobs:
             -Dsonar.test.inclusions=tests/**/*.mjs
             -Dsonar.exclusions=**/*.test.mjs,**/node_modules/**,**/coverage/**
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.qualitygate.wait=true

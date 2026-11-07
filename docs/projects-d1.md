@@ -59,3 +59,15 @@ o projeto local. O HTML ainda aberto no editor pode ser salvo por download.
 Testes automatizados D1 isolados verificam a estrutura de `projects`,
 autenticacao, isolamento, paginacao e revisao. Eles **nao substituem** testes
 end-to-end com o D1 remoto.
+
+## Diagnostico temporario de conexao D1 no Preview
+
+O endpoint `GET /api/internal/d1-health` so responde se a variavel
+`ENABLE_D1_HEALTH=true` estiver configurada, atualmente apenas em
+`previews.vars` na branch `desenvolvimento-sites-v2`.
+Consulta exclusivamente metadados do esquema (`sqlite_master`, `PRAGMA`)
+sem ler dados pessoais nem alterar registros. Responde
+`{"status":"ok","schema":"projects"}` apenas quando as quatro tabelas,
+as sete colunas de `projects` e o indice de listagem existem.
+A ausencia de flag retorna HTTP 404. Quando terminar a verificacao no
+Preview, **remover endpoint e flag**; nao habilitar na producao.

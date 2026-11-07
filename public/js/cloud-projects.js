@@ -60,7 +60,7 @@ if (area && status && refresh && localArea) {
       const matching = saved.find(p => p && link.getAttribute('href') ===
         'editor.html?project=' + encodeURIComponent(p.id));
       if (!matching) continue;
-      const action = makeButton('Copiar para nuvem', () => importCopy(matching, action));
+      const action = makeButton('Copiar para nuvem', () => {\n        void importCopy(matching, action);\n      });
       action.dataset.cloudCopy = 'true';
       action.setAttribute('data-cloud-copy', '');
       controls.append(action);
@@ -122,8 +122,8 @@ if (area && status && refresh && localArea) {
     }
   }
 
-  refresh.addEventListener('click', () => load(false));
-  document.getElementById('cloud-more')?.addEventListener('click', () => load(true));
+  refresh.addEventListener('click', () => { void load(false); });
+  document.getElementById('cloud-more')?.addEventListener('click', () => { void load(true); });
   // Apenas sob comando do usuario, nunca buscar nem importar automaticamente.
   // A funcionalidade pode estar desabilitada ate a migracao autorizada no D1.
 }

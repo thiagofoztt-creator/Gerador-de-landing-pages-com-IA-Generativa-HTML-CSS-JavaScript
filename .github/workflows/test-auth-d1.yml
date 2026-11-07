@@ -1,3 +1,35 @@
+name: Testes D1 Isolado - Autenticacao
+
+on:
+  push:
+    branches:
+      - desenvolvimento-sites-v2
+    paths:
+      - "worker/auth/**"
+      - "tests/fixtures/auth_schema.sql"
+      - "tests/fixtures/auth_sessions_test.sql"
+      - "tests/wrangler.d1-test.jsonc"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/test-auth-d1.yml"
+  pull_request:
+    branches:
+      - desenvolvimento-sites-v2
+    paths:
+      - "worker/auth/**"
+      - "tests/fixtures/auth_schema.sql"
+      - "tests/fixtures/auth_sessions_test.sql"
+      - "tests/wrangler.d1-test.jsonc"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/test-auth-d1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testar-d1:
     name: Validar estrutura e sessoes D1 local
     runs-on: ubuntu-latest
 

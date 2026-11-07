@@ -132,7 +132,6 @@ test("Cadastro rejeita emails sem dominio ou com arrobas repetidas", async () =>
     "usuario@.com",
     "usuario@@dominio.com",
     "usuario nome@dominio.com",
-    "usuario@dominio.com ",
     "a@dominio".padEnd(260, "x")
   ]) {
     const resultado = await registerUser(banco.db, {

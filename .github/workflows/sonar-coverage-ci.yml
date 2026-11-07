@@ -19,6 +19,20 @@ permissions:
   pull-requests: read
 
 jobs:
+  diagnosticar-habilitacao:
+    name: Conferir habilitacao do SonarQube CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar se SONAR_CI_ENABLED esta ativo
+        env:
+          FLAG_ATIVA: ${{ vars.SONAR_CI_ENABLED == 'true' }}
+        run: |
+          if [ "$FLAG_ATIVA" = "true" ]; then
+            echo "SONAR_CI_ENABLED habilitado."
+          else
+            echo "::warning::SONAR_CI_ENABLED nao esta ativo neste evento; conferir variavel do repositorio com valor exato true."
+          fi
+
   analisar-sonar-com-cobertura:
     if: ${{ vars.SONAR_CI_ENABLED == 'true' }}
     name: Analise CI SonarQube e LCOV

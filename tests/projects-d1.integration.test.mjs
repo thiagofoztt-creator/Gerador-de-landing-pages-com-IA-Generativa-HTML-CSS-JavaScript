@@ -91,7 +91,7 @@ describe("Projetos privados no D1 isolado", () => {
 
     for (const [method, body] of [
       ["GET", undefined],
-      ["PUT", { name: "Alterado por B", html: "<h1>Invasao</h1>" }],
+      ["PUT", { name: "Alterado por B", html: "<h1>Invasao</h1>", expectedRevision: 1 }],
       ["DELETE", undefined]
     ]) {
       const attempted = await read(await call(db, "/api/projects/" + idA, method, cookieB, body));
@@ -104,10 +104,17 @@ describe("Projetos privados no D1 isolado", () => {
     expect(stillA.body.project.html).toBe(html);
 
     const update = await read(await call(db, "/api/projects/" + idA, "PUT", cookieA, {
-      name: "Projeto A editado", html: "<html><body>Atualizado A</body></html>"
+      name: "Projeto A editado", html: "<html><body>Atualizado A</body></html>", expectedRevision: 1
     }));
     expect(update.status).toBe(200);
     expect(update.body.project.name).toBe("Projeto A editado");
+    expect(update.body.project.revision).toBe(2);
+    const stale = await read(await call(db, "/api/projects/" + idA, "PUT", cookieA, {
+      name: "Rascunho antigo", html, expectedRevision: 1
+    }));
+    expect(stale.status).toBe(409);
+    const retained = await read(await call(db, "/api/projects/" + idA, "GET", cookieA));
+    expect(retained.body.project.name).toBe("Projeto A editado");
 
     const removed = await read(await call(db, "/api/projects/" + idA, "DELETE", cookieA));
     expect(removed).toEqual({ status: 200, body: { excluido: true } });

@@ -45,14 +45,14 @@ async function readPayload(request) {
     if (!data || typeof data !== "object" || Array.isArray(data)) {
       return { error: json({ erro: "Dados do projeto inválidos." }, 400) };
     }
-    if (Object.keys(data).some(key => key !== "name" && key !== "html")) {
+    if (Object.keys(data).some(key => key !== "name" && key !== "html" && key !== "expectedRevision")) {
       return { error: json({ erro: "Campos não permitidos." }, 400) };
     }
     if (typeof data.name !== "string" || !data.name.trim() || data.name.trim().length > 80 ||
         typeof data.html !== "string" || !data.html.trim() || data.html.length > MAX_HTML_CHARS) {
       return { error: json({ erro: "Nome ou HTML inválido." }, 400) };
     }
-    return { data: { name: data.name.trim(), html: data.html } };
+    return { data: { name: data.name.trim(), html: data.html, expectedRevision: data.expectedRevision } };
   } catch {
     return { error: json({ erro: "JSON inválido." }, 400) };
   }
@@ -71,7 +71,7 @@ function projectRows(db, userId, cursor) {
 
 async function selectOwned(db, userId, id) {
   return db.prepare(
-    "SELECT id, name, html, created_at AS createdAt, updated_at AS updatedAt" +
+    "SELECT id, name, html, revision, created_at AS createdAt, updated_at AS updatedAt" +
     " FROM user_projects WHERE user_id = ? AND id = ? LIMIT 1"
   ).bind(userId, id).first();
 }
@@ -143,7 +143,13 @@ export async function handleProjects(request, env) {
 
     const payload = await readPayload(request);
     if (payload.error) return payload.error;
-    const { name, html } = payload.data;
+    const { name, html, expectedRevision } = payload.data;
+    if (isCollection && expectedRevision !== undefined) {
+      return json({ erro: "Revisão não permitida na criação." }, 400);
+    }
+    if (!isCollection && (!Number.isSafeInteger(expectedRevision) || expectedRevision < 1)) {
+      return json({ erro: "Revisão obrigatória para atualização." }, 400);
+    }
 
     if (isCollection) {
       const newId = crypto.randomUUID();
@@ -155,12 +161,15 @@ export async function handleProjects(request, env) {
     }
 
     const result = await env.DB.prepare(
-      "UPDATE user_projects SET name = ?, html = ?," +
+      "UPDATE user_projects SET name = ?, html = ?, revision = revision + 1," +
       " updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')" +
-      " WHERE id = ? AND user_id = ?"
-    ).bind(name, html, id, userId).run();
+      " WHERE id = ? AND user_id = ? AND revision = ?"
+    ).bind(name, html, id, userId, expectedRevision).run();
     if (!(result.meta?.changes > 0)) {
-      return json({ erro: "Projeto não encontrado." }, 404);
+      const existing = await selectOwned(env.DB, userId, id);
+      return existing
+        ? json({ erro: "Este projeto foi atualizado em outra sessão. Recarregue antes de salvar." }, 409)
+        : json({ erro: "Projeto não encontrado." }, 404);
     }
     const project = await selectOwned(env.DB, userId, id);
     return json({ project });

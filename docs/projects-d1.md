@@ -11,7 +11,7 @@ nas operacoes de leitura, edicao e exclusao.
 - `GET /api/projects`: lista ate 50 metadados por pagina; `nextCursor` para pagina seguinte.
 - `POST /api/projects`: cria projeto com `name` (1–80 caracteres) e `html` (1–200000 caracteres).
 - `GET /api/projects/:id`: carrega HTML e metadados do projeto do usuario.
-- `PUT /api/projects/:id`: atualiza o projeto do usuario.
+- `PUT /api/projects/:id`: atualiza o projeto do usuario, exigindo `expectedRevision` para impedir sobrescritas concorrentes (HTTP 409 em conflito).
 - `DELETE /api/projects/:id`: exclui projeto do usuario.
 
 POST, PUT e DELETE exigem `Origin` igual a origem da requisicao (protecao CSRF).

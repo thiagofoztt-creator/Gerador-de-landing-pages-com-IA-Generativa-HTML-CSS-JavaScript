@@ -58,7 +58,7 @@ export const createCloudProject = (name, html) => cloudRequest('/api/projects', 
   method: 'POST',
   data: { name, html }
 });
-export const updateCloudProject = (id, name, html) => cloudRequest(
+export const updateCloudProject = (id, name, html, expectedRevision) => cloudRequest(
   '/api/projects/' + encodeURIComponent(id),
-  { method: 'PUT', data: { name, html } }
+  { method: 'PUT', data: { name, html, expectedRevision } }
 );

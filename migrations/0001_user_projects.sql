@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS user_projects (
   user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL CHECK (length(name) BETWEEN 1 AND 80),
   html TEXT NOT NULL CHECK (length(html) BETWEEN 1 AND 200000),
+  revision INTEGER NOT NULL DEFAULT 1 CHECK (revision >= 1),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
 );

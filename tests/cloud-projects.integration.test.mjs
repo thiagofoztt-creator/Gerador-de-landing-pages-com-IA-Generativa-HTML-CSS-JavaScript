@@ -133,7 +133,8 @@ describe('Painel remoto opcional sem perda de projetos locais', () => {
     await import('../public/js/cloud-projects.js');
     await ui.nodes.get('cloud-refresh').fire('click');
     await vi.waitFor(() => expect(ui.nodes.get('cloud-more').hidden).toBe(false));
-    await vi.waitFor(() => expect(ui.nodes.get('cloud-more').disabled).toBe(false));
+    await vi.waitFor(() => expect(ui.nodes.get('cloud-refresh').disabled).toBe(false));
+    expect(ui.nodes.get('cloud-more').disabled).toBe(false);
     await ui.nodes.get('cloud-more').fire('click');
     await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(2));
     await vi.waitFor(() => {

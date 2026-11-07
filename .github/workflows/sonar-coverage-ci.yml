@@ -107,3 +107,46 @@ jobs:
             -Dsonar.exclusions=**/*.test.mjs,**/node_modules/**,**/coverage/**
             -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
             -Dsonar.qualitygate.wait=true
+
+      - name: Diagnosticar problemas de confiabilidade sem expor credenciais
+        if: ${{ failure() }}
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          const url = new URL('https://sonarcloud.io/api/issues/search');
+          url.searchParams.set('componentKeys', 'thiagofoztt-creator_Gerador-de-landing-pages-com-IA-Generativa-HTML-CSS-JavaScript');
+          url.searchParams.set('pullRequest', '1');
+          url.searchParams.set('resolved', 'false');
+          url.searchParams.set('ps', '30');
+          const token = process.env.SONAR_TOKEN || '';
+          if (!token) {
+            console.log('Diagnostico indisponivel: token ausente.');
+            process.exit(0);
+          }
+          try {
+            const response = await fetch(url, {
+              headers: { Authorization: 'Basic ' + Buffer.from(token + ':').toString('base64') }
+            });
+            if (!response.ok) {
+              console.log('Diagnostico indisponivel: HTTP', response.status);
+              process.exit(0);
+            }
+            const data = await response.json();
+            const issues = (data.issues || []).filter(item => item.type === 'BUG' ||
+              (item.impacts || []).some(impact => impact.softwareQuality === 'RELIABILITY'));
+            console.log('Problemas de confiabilidade encontrados:', issues.length);
+            for (const issue of issues.slice(0, 10)) {
+              console.log(JSON.stringify({
+                arquivo: (issue.component || '').split(':').pop(),
+                linha: issue.line || issue.textRange?.startLine || null,
+                regra: issue.rule,
+                severidade: issue.severity,
+                mensagem: issue.message
+              }));
+            }
+          } catch {
+            console.log('Diagnostico temporariamente indisponivel.');
+          }
+          JS

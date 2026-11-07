@@ -1,10 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
-
 import { registerUser } from "./auth/register.js";
 import { loginUser } from "./auth/login.js";
-
 import {getSession,revokeSession,readSessionCookie,clearSessionCookie} from "./auth/session.js";
-
 import { checkAuthRateLimit } from "./auth/rate-limit.js";
 import { validateAuthTurnstile } from "./auth/turnstile.js";
 

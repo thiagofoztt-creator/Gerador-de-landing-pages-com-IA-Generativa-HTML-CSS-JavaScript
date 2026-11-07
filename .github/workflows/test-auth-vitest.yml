@@ -1,16 +1,21 @@
-
 name: Testes Vitest - Autenticacao D1
-
-# Reexecucao dos testes de regressao da autenticacao.
 
 on:
   push:
     branches:
       - desenvolvimento-sites-v2
     paths:
-      - "vitest.config.mjs"
+      - "worker/**"
       - "tests/**"
+      - "vitest.config.mjs"
+      - "wrangler.jsonc"
+      - "package.json"
+      - "bun.lock"
       - ".github/workflows/test-auth-vitest.yml"
+
+  pull_request:
+    branches:
+      - desenvolvimento-sites-v2
 
   workflow_dispatch:
 
@@ -31,6 +36,20 @@ jobs:
         with:
           node-version: "24"
 
+      - name: Diagnosticar commit e sintaxe do Worker
+        shell: bash
+        run: |
+          echo "Branch: $GITHUB_REF_NAME"
+          echo "Commit da execucao: $GITHUB_SHA"
+          echo "Commit do checkout: $(git rev-parse HEAD)"
+          echo "Trecho do Worker, linhas 960 a 977:"
+          nl -ba worker/index.js | sed -n '960,977p'
+          echo "Verificando sintaxe JavaScript..."
+          node --check worker/index.js
+
+      - name: Testar autenticacao e sessoes com Node.js
+        run: node --test worker/auth/*.test.mjs
+
       - name: Configurar Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -39,16 +58,15 @@ jobs:
       - name: Instalar dependencias existentes
         run: bun install --frozen-lockfile
 
+      # Preserva o modo atual do projeto; futuramente versionar as
+      # dependencias de teste no package.json e no bun.lock.
       - name: Instalar dependencias temporarias de teste
         run: |
           bun add -d "vitest@^4.1.0" \
             "@cloudflare/vitest-plugin"
 
       - name: Executar teste Vitest D1
-        run: |
-          bunx vitest run \
-            tests/auth-d1.integration.test.mjs
+        run: bunx vitest run tests/auth-d1.integration.test.mjs
 
       - name: Confirmar execucao
-        run: |
-          echo "Teste Vitest finalizado com sucesso."
+        run: echo "Testes de autenticacao finalizados com sucesso."

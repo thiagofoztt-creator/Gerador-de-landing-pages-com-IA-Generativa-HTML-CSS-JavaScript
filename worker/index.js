@@ -974,8 +974,7 @@ export class CotaDiaria extends DurableObject {
       reservaId.length > 128
     ) {
       throw new Error("Identificador de reserva invalido.");
-    };
-  }
+    }
 
     const registros = this.ctx.storage.sql.exec(`
       SELECT

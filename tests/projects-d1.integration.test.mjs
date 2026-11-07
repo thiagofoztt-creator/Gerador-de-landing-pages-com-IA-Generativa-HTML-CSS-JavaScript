@@ -58,6 +58,28 @@ describe("Projetos privados no D1 isolado", () => {
     const idA = created.body.project.id;
     expect(idA).toMatch(/^[0-9a-f-]{36}$/i);
 
+    // O usuario nunca pode escolher proprietario nem atributos persistidos.
+    for (const bad of [
+      { name: "Invasao", html, user_id: "owner-b" },
+      { name: "Invasao", html, id: "123e4567-e89b-42d3-a456-426614174000" }
+    ]) {
+      const result = await read(await call(db, "/api/projects", "POST", cookieA, bad));
+      expect(result.status).toBe(400);
+      expect(result.body.erro).toBe("Campos não permitidos.");
+    }
+    for (const bad of [
+      { name: "", html }, { name: "x".repeat(81), html },
+      { name: "Valido", html: "" }, { name: "Valido", html: 14 }
+    ]) {
+      expect((await call(db, "/api/projects", "POST", cookieA, bad)).status).toBe(400);
+    }
+    expect((await call(db, "/api/projects", "POST", cookieA, "{")).status).toBe(400);
+    expect((await call(db, "/api/projects", "POST", cookieA, { name: "X", html },
+      { "Content-Type": "text/plain" })).status).toBe(415);
+    expect((await call(db, "/api/projects", "POST", cookieA, { name: "Valido", html },
+      { "Content-Length": "999999" })).status).toBe(413);
+    expect((await call(db, "/api/projects?cursor=indevido", "GET", cookieA)).status).toBe(400);
+
     const listA = await read(await call(db, "/api/projects", "GET", cookieA));
     expect(listA.status).toBe(200);
     expect(listA.body.projects.map(project => project.id)).toContain(idA);

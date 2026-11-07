@@ -42,7 +42,19 @@ jobs:
           grep -qi '<html' producao.html
           consultar "$PREVIEW/" preview.html 200
           grep -qi 'Thiago IA' preview.html
-          consultar "$PREVIEW/planos/" planos.html 200
+          # O build e o smoke test iniciam em paralelo apos o commit.
+          # Consultar a rota nova novamente durante a propagacao do deploy.
+          disponivel=0
+          for tentativa in $(seq 1 18); do
+            codigo=$(curl -sS -L --max-time 15 -o planos.html -w '%{http_code}' "$PREVIEW/planos/" || true)
+            if [ "$codigo" = "200" ]; then disponivel=1; break; fi
+            echo "Publicacao da pagina de planos pendente (HTTP $codigo; tentativa $tentativa/18)"
+            sleep 10
+          done
+          if [ "$disponivel" -ne 1 ]; then
+            echo "::error::Pagina /planos/ ainda indisponivel apos as tentativas de verificacao."
+            exit 1
+          fi
           grep -q "19,90" planos.html
           grep -q "49,90" planos.html
           grep -q "119,90" planos.html

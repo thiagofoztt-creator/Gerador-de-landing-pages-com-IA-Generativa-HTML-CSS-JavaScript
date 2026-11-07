@@ -45,9 +45,13 @@ describe("Respostas de erro do Worker sem operacoes externas", () => {
     expect(response.status).toBe(expected);
   });
 
-  it("rejeita metodo GET para cadastro, geracao e consulta incorreta de sessao", async () => {
-    for (const path of ["/api/auth/register", "/gerar", "/api/auth/me"]) {
-      const status = (await worker.fetch(req(path, "GET"), authEnv())).status;
+  it("rejeita metodo nao permitido para cadastro, geracao e consulta de sessao", async () => {
+    for (const [path, method] of [
+      ["/api/auth/register", "GET"],
+      ["/gerar", "GET"],
+      ["/api/auth/me", "POST"]
+    ]) {
+      const status = (await worker.fetch(req(path, method), authEnv())).status;
       expect(status).toBe(405);
     }
   });

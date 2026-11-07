@@ -24,6 +24,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (descricao.length < 5 || descricao.length > 500) {
       status.textContent = 'Digite uma descrição entre 5 e 500 caracteres.'; return;
     }
+    if (typeof window.turnstile?.getResponse !== 'function') {
+      status.textContent = 'A verificação de segurança não carregou. Atualize a página.'; return;
+    }
     let turnstileToken = '';
     try { turnstileToken = window.turnstile?.getResponse() || ''; }
     catch (erro) { console.error('Erro no Turnstile:', erro); }
@@ -35,8 +38,14 @@ document.addEventListener('DOMContentLoaded', () => {
         method:'POST', headers:{'Content-Type':'application/json'},
         body:JSON.stringify({descricao,turnstileToken})
       });
-      const dados = await resposta.json();
-      if (!resposta.ok) throw new Error(dados.erro || 'Erro ao gerar página.');
+      const tipoResposta = resposta.headers?.get('content-type') || '';
+      if (!tipoResposta.toLowerCase().includes('application/json')) {
+        throw new Error(`O servidor retornou uma resposta inesperada (HTTP ${resposta.status}).`);
+      }
+      let dados;
+      try { dados = await resposta.json(); }
+      catch { throw new Error('O servidor enviou JSON inválido.'); }
+      if (!resposta.ok) throw new Error(typeof dados?.erro === 'string' ? dados.erro : 'Erro ao gerar página.');
       if (typeof dados.codigo !== 'string' || !dados.codigo.trim()) throw new Error('A IA não retornou código válido.');
       preview.srcdoc = dados.codigo;
       resultado.style.display = 'block'; editorBtn.hidden = false;

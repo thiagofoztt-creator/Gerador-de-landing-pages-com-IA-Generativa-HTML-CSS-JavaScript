@@ -1,5 +1,3 @@
-
-
 {
   "name": "gerador-de-landing-pages-com-ia",
   "keep_vars": true,
@@ -8,18 +6,11 @@
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    
-"run_worker_first": [
-  "/gerar",
-  "/api/auth/register",
-  "/api/auth/login",
-  "/api/auth/logout",
-  "/api/auth/me"
-]
-
+    "run_worker_first": [
+      "/gerar",
+      "/api/*"
+    ]
   },
-
-
   "ratelimits": [
     {
       "name": "LIMITE_GERACAO",
@@ -52,13 +43,11 @@
       "storage": "sqlite"
     }
   },
-  
-"previews": {
-  "vars": {
-    "ENABLE_GENERATION": "true",
-    "ENABLE_AUTH_REGISTRATION": "false"
-  },
-
+  "previews": {
+    "vars": {
+      "ENABLE_GENERATION": "true",
+      "ENABLE_AUTH_REGISTRATION": "false"
+    },
     "d1_databases": [
       {
         "binding": "DB",

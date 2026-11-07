@@ -242,4 +242,100 @@ describe("JavaScript da interface: comportamento real com DOM isolado", () => {
     expect(projects[1].html).toBe(another.html);
     expect(ui.nodes.get("status").textContent).toContain("somente neste projeto");
   });
+
+  it("projetos validam renomeacao, exclusao e exportacao sem perder outras entradas", async () => {
+    const project = { id: "p1", name: "Primeiro", html: "<html><body><h1>Primeiro</h1></body></html>",
+      createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-02T00:00:00Z" };
+    const other = { id: "p2", name: "Outro", html: "<html><body>Outro</body></html>",
+      createdAt: "2026-01-01T00:00:00Z", updatedAt: "2026-01-01T00:00:00Z" };
+    const ui = setup(["projects", "message"], { local: {
+      "thiagoia-legacy-imported-v1": "yes",
+      "thiagoia-projects-v1": JSON.stringify([project, other])
+    } });
+    const OriginalURL = globalThis.URL;
+    class ObjectURL extends OriginalURL {}
+    ObjectURL.createObjectURL = vi.fn(() => "blob:teste");
+    ObjectURL.revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", ObjectURL);
+    await import("../public/js/projetos.js");
+    const area = ui.nodes.get("projects");
+    const buttons = () => area.children[0].children[3].children;
+    vi.stubGlobal("prompt", vi.fn(() => " "));
+    await buttons()[1].fire("click");
+    expect(ui.nodes.get("message").textContent).toContain("nome de 1 a 80");
+    await buttons()[3].fire("click");
+    expect(ObjectURL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(ui.nodes.get("message").textContent).toContain("Download solicitado");
+    vi.stubGlobal("prompt", vi.fn(() => "nao coincide"));
+    await buttons()[4].fire("click");
+    expect(JSON.parse(ui.local.getItem("thiagoia-projects-v1"))).toHaveLength(2);
+    vi.stubGlobal("prompt", vi.fn(() => "Primeiro"));
+    await buttons()[4].fire("click");
+    expect(JSON.parse(ui.local.getItem("thiagoia-projects-v1"))).toHaveLength(1);
+    expect(JSON.parse(ui.local.getItem("thiagoia-projects-v1"))[0].id).toBe("p2");
+  });
+
+  it("lista recusa backup sem codigo e nome muito grande", async () => {
+    const project = { id: "vazio", name: "Vazio", html: "",
+      createdAt: "2026-01-01T00:00:00Z" };
+    const ui = setup(["projects", "message"], { local: {
+      "thiagoia-legacy-imported-v1": "yes",
+      "thiagoia-projects-v1": JSON.stringify([project])
+    } });
+    await import("../public/js/projetos.js");
+    const buttons = ui.nodes.get("projects").children[0].children[3].children;
+    await buttons[3].fire("click");
+    expect(ui.nodes.get("message").textContent).toContain("não contém HTML");
+    vi.stubGlobal("prompt", vi.fn(() => "x".repeat(81)));
+    await buttons[1].fire("click");
+    expect(ui.nodes.get("message").textContent).toContain("1 a 80");
+  });
+
+  it("editor trata rascunho vazio, campos invalidos e bloqueia download sem HTML", async () => {
+    const ui = setup([
+      "code", "preview", "status", "element-choice", "element-text",
+      "save", "apply-text", "apply-colors", "color-primary", "color-background", "download"
+    ]);
+    await import("../public/js/editor.js");
+    expect(ui.nodes.get("element-choice").children[0].textContent).toBe("Nenhum texto encontrado");
+    await ui.nodes.get("apply-text").fire("click");
+    expect(ui.nodes.get("status").textContent).toBe("Nenhum texto disponível.");
+    await ui.nodes.get("save").fire("click");
+    expect(ui.nodes.get("status").textContent).toBe("Não há um site para salvar.");
+    await ui.nodes.get("download").fire("click");
+    expect(ui.nodes.get("status").textContent).toBe("Não há código para baixar.");
+    ui.nodes.get("code").value = "<html><body><h1>Site de exemplo</h1></body></html>";
+    ui.nodes.get("color-primary").value = "vermelho";
+    ui.nodes.get("color-background").value = "#ffffff";
+    await ui.nodes.get("apply-colors").fire("click");
+    expect(ui.nodes.get("status").textContent).toBe("Escolha cores válidas.");
+  });
+
+  it("editor exporta HTML e captura erro de armazenamento", async () => {
+    const ui = setup([
+      "code", "preview", "status", "element-choice", "element-text", "save", "download"
+    ], { local: { "thiagoia-editor-html-v1": "<html><body><h1>Site</h1></body></html>" } });
+    const OriginalURL = globalThis.URL;
+    class ObjectURL extends OriginalURL {}
+    ObjectURL.createObjectURL = vi.fn(() => "blob:teste");
+    ObjectURL.revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", ObjectURL);
+    await import("../public/js/editor.js");
+    await ui.nodes.get("download").fire("click");
+    expect(ObjectURL.createObjectURL).toHaveBeenCalledTimes(1);
+    expect(ui.nodes.get("status").textContent).toContain("Download solicitado.");
+    ui.local.setItem.mockImplementation(() => { throw new Error("Sem espaço"); });
+    await ui.nodes.get("save").fire("click");
+    expect(ui.nodes.get("status").textContent).toContain("Sem espaço");
+  });
+
+  it("gerador recusa uso sem componentes e captcha ausente", async () => {
+    const ui = setup(["btnGerar", "prompt", "status", "resultado", "preview"]);
+    ui.nodes.get("prompt").value = "Landing page de servicos";
+    await import("../public/js/script.js");
+    ui.document.addEventListener.mock.calls.find(([name]) => name === "DOMContentLoaded")[1]();
+    await ui.nodes.get("btnGerar").fire("click");
+    expect(ui.nodes.get("status").textContent).toContain("verificação de segurança não carregou");
+  });
+
 });

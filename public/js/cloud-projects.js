@@ -112,7 +112,7 @@ if (area && status && refresh && localArea) {
       const moreButton = document.getElementById('cloud-more');
       if (moreButton) {
         moreButton.hidden = !nextCursor;
-        moreButton.disabled = !nextCursor;
+        moreButton.disabled = true;
       }
       addImportActions();
     } catch (error) {
@@ -121,6 +121,8 @@ if (area && status && refresh && localArea) {
     } finally {
       loading = false;
       refresh.disabled = false;
+      const moreButton = document.getElementById('cloud-more');
+      if (moreButton) moreButton.disabled = !nextCursor;
     }
   }
 

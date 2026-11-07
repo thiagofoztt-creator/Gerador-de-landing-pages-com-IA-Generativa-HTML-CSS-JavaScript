@@ -3,7 +3,10 @@
 
   const LEGACY_KEY = 'thiagoia-editor-html-v1';
   const PROJECTS_KEY = 'thiagoia-projects-v1';
-  const projectId = new URLSearchParams(window.location.search).get('project');
+  const params = new URLSearchParams(window.location.search);
+  const projectId = params.get('project');
+  const cloudId = params.get('cloud');
+  const cloudMode = cloudId !== null;
 
   const code = document.getElementById('code');
   const preview = document.getElementById('preview');
@@ -19,7 +22,10 @@
   }
 
   let entries = [];
-  let canSave = true;
+  let canSave = !cloudMode;
+  let cloudProject = null;
+  let cloudApi = null;
+  let cloudSaving = false;
 
   function readProjects() {
     const raw = localStorage.getItem(PROJECTS_KEY);
@@ -82,13 +88,16 @@
   }
 
   function notifyChanges() {
-    saveButton.textContent = 'Salvar neste navegador';
+    saveButton.textContent = cloudMode ? 'Salvar na nuvem' : 'Salvar neste navegador';
   }
 
   let initial = '';
   let openingMessage = 'Prévia atualizada.';
 
-  if (projectId !== null) {
+  if (cloudMode) {
+    // URL de nuvem nunca deve acessar nem sobrescrever o armazenamento local.
+    openingMessage = 'Carregando projeto da nuvem...';
+  } else if (projectId !== null) {
     // Uma URL com ?project= jamais deve cair no armazenamento legado.
     try {
       const project = readProjects().find(item => item && item.id === projectId);
@@ -125,6 +134,33 @@
   if (!canSave) {
     saveButton.disabled = true;
     code.readOnly = true;
+  }
+  if (cloudMode) {
+    (async () => {
+      try {
+        if (projectId !== null) throw new Error('Selecione apenas um projeto por vez.');
+        cloudApi = await import('./cloud-api.js');
+        const result = await cloudApi.getCloudProject(cloudId);
+        if (!result.project || typeof result.project.html !== 'string' ||
+            !Number.isSafeInteger(result.project.revision)) {
+          throw new Error('Projeto da nuvem inválido.');
+        }
+        cloudProject = result.project;
+        code.value = cloudProject.html;
+        canSave = true;
+        saveButton.disabled = false;
+        code.readOnly = false;
+        saveButton.textContent = 'Salvar na nuvem';
+        updateElements();
+        render('Projeto da nuvem carregado: ' + cloudProject.name + '.');
+      } catch (error) {
+        // Nunca usar localStorage como fallback para um ID remoto desconhecido.
+        canSave = false;
+        saveButton.disabled = true;
+        code.readOnly = true;
+        status.textContent = error.message || 'Falha ao carregar projeto da nuvem.';
+      }
+    })();
   }
 
   document.getElementById('refresh')?.addEventListener('click', () => {
@@ -188,10 +224,34 @@
 
   code.addEventListener('input', notifyChanges);
 
-  saveButton.addEventListener('click', () => {
-    if (!canSave) return;
+  saveButton.addEventListener('click', async () => {
+    if (!canSave || cloudSaving) return;
     if (!code.value.trim()) {
       status.textContent = 'Não há um site para salvar.';
+      return;
+    }
+    if (cloudMode) {
+      if (!cloudProject || !cloudApi) return;
+      cloudSaving = true;
+      saveButton.disabled = true;
+      try {
+        const result = await cloudApi.updateCloudProject(
+          cloudProject.id, cloudProject.name, code.value, cloudProject.revision
+        );
+        if (!result.project || !Number.isSafeInteger(result.project.revision)) {
+          throw new Error('O servidor não confirmou o salvamento.');
+        }
+        cloudProject = result.project;
+        saveButton.textContent = '✓ Salvo na nuvem';
+        status.textContent = 'Salvo na nuvem. Nenhum projeto local foi alterado.';
+      } catch (error) {
+        saveButton.textContent = 'Salvar na nuvem';
+        status.textContent = 'Não foi possível salvar: ' + error.message +
+          ' Seu HTML continua neste editor; baixe uma cópia antes de sair.';
+      } finally {
+        cloudSaving = false;
+        saveButton.disabled = false;
+      }
       return;
     }
     try {

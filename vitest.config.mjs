@@ -15,6 +15,12 @@ export default defineConfig({
     include: [
       "tests/**/*.integration.test.mjs"
     ],
-    maxWorkers: 1
+    maxWorkers: 1,
+    coverage: {
+      provider: "istanbul",
+      include: ["worker/**/*.js"],
+      reporter: ["text", "lcov"],
+      reportsDirectory: "./coverage"
+    }
   }
 });

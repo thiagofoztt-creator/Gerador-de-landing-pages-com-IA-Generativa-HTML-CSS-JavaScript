@@ -28,43 +28,6 @@ export default {
     const url = new URL(request.url);
 
     
-    // Diagnostico temporario SOMENTE em Preview e sob feature flag.
-    // Consulta metadados estaticos; jamais retorna linhas ou dados de usuarios.
-    if (url.pathname === "/api/internal/d1-health") {
-      if (env.ENABLE_D1_HEALTH !== "true") {
-        return json({ erro: "Rota não encontrada." }, 404);
-      }
-      if (request.method !== "GET") {
-        return json({ erro: "Método não permitido." }, 405);
-      }
-      if (!env.DB) {
-        return json({ status: "indisponivel" }, 503);
-      }
-      try {
-        const records = await env.DB.prepare(
-          "SELECT name FROM sqlite_master WHERE type = 'table' " +
-          "AND name IN ('users', 'user_credentials', 'user_sessions', 'projects')"
-        ).all();
-        const tables = new Set((records.results || []).map(row => row.name));
-        const structure = await env.DB.prepare("PRAGMA table_info(projects)").all();
-        const indexes = await env.DB.prepare("PRAGMA index_list(projects)").all();
-        const columns = new Set((structure.results || []).map(row => row.name));
-        const hasIndex = (indexes.results || [])
-          .some(row => row.name === "idx_projects_user_updated");
-        const ready = ["users", "user_credentials", "user_sessions", "projects"]
-          .every(name => tables.has(name))
-          && ["id", "user_id", "name", "html", "revision", "created_at", "updated_at"]
-            .every(name => columns.has(name))
-          && hasIndex;
-        return ready
-          ? json({ status: "ok", schema: "projects" })
-          : json({ status: "estrutura_incompleta" }, 503);
-      } catch {
-        console.error("Falha no diagnostico temporario do D1.");
-        return json({ status: "indisponivel" }, 503);
-      }
-    }
-
     // Projetos privados D1: recurso permanece desabilitado ate homologacao.
     if (url.pathname === "/api/projects" || url.pathname.startsWith("/api/projects/")) {
       return handleProjects(request, env);

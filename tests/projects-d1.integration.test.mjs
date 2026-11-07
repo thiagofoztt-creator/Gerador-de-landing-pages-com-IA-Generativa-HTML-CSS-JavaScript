@@ -41,23 +41,6 @@ describe("Projetos privados no D1 isolado", () => {
     const db = env.DB;
     await apply(db, authSchema);
     await apply(db, projectsSchema);
-    const diagnosticUrl = request("/api/internal/d1-health");
-    const disabled = await worker.fetch(diagnosticUrl, { DB: db });
-    expect(disabled.status).toBe(404);
-    const enabled = await worker.fetch(request("/api/internal/d1-health"), {
-      DB: db, ENABLE_D1_HEALTH: "true"
-    });
-    expect(enabled.status).toBe(200);
-    expect(await enabled.json()).toEqual({ status: "ok", schema: "projects" });
-    const unavailable = await worker.fetch(request("/api/internal/d1-health"), {
-      ENABLE_D1_HEALTH: "true"
-    });
-    expect(unavailable.status).toBe(503);
-    const wrongMethod = await worker.fetch(
-      request("/api/internal/d1-health", "POST"), { DB: db, ENABLE_D1_HEALTH: "true" }
-    );
-    expect(wrongMethod.status).toBe(405);
-
     // A base isolada deve corresponder ao banco thiagoia-hml e nao criar tabela paralela.
     const columns = (await db.prepare("PRAGMA table_info(projects)").all()).results || [];
     expect(columns.map(column => column.name)).toEqual([

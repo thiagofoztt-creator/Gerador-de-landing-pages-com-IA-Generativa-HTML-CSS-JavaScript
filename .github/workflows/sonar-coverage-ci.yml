@@ -77,7 +77,8 @@ jobs:
             tests/coverage-routes.integration.test.mjs \
             tests/frontend-js.integration.test.mjs \
             tests/projects-d1.integration.test.mjs \
-            tests/cloud-ui.integration.test.mjs
+            tests/cloud-ui.integration.test.mjs \
+            tests/cloud-projects.integration.test.mjs
           test -s coverage/lcov.info
           grep -q '^SF:.*worker/' coverage/lcov.info
 

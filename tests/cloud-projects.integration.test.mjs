@@ -78,10 +78,12 @@ describe('Painel remoto opcional sem perda de projetos locais', () => {
       }],nextCursor:null }));
     await import('../public/js/cloud-projects.js');
     await ui.nodes.get('cloud-refresh').fire('click');
+    await vi.waitFor(() => expect(ui.nodes.get('cloud-status').textContent).toContain('carregados'));
     const controls=ui.nodes.get('projects').children[0].children[1];
     const copyButton=controls.querySelector('[data-cloud-copy]');
     expect(copyButton.textContent).toBe('Copiar para nuvem');
     await copyButton.fire('click');
+    await vi.waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(3));
     expect(globalThis.confirm).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledTimes(3);
     const request=JSON.parse(fetchSpy.mock.calls[1][1].body);
@@ -101,6 +103,7 @@ describe('Painel remoto opcional sem perda de projetos locais', () => {
       .mockResolvedValueOnce(Response.json({ projects:[],nextCursor:null }));
     await import('../public/js/cloud-projects.js');
     await ui.nodes.get('cloud-refresh').fire('click');
+    await vi.waitFor(() => expect(ui.nodes.get('cloud-status').textContent).toContain('carregados'));
     const copy=ui.nodes.get('projects').children[0].children[1].children[0];
     await copy.fire('click');
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -114,7 +117,7 @@ describe('Painel remoto opcional sem perda de projetos locais', () => {
       {erro:'Projetos na nuvem ainda não disponíveis.'},{status:503}));
     await import('../public/js/cloud-projects.js');
     await ui.nodes.get('cloud-refresh').fire('click');
-    expect(ui.nodes.get('cloud-status').textContent).toContain('preservados');
+    await vi.waitFor(() => expect(ui.nodes.get('cloud-status').textContent).toContain('preservados'));
     expect(ui.nodes.get('projects').children).toHaveLength(1);
     expect(ui.localStorage.setItem).not.toHaveBeenCalled();
   });
@@ -129,9 +132,9 @@ describe('Painel remoto opcional sem perda de projetos locais', () => {
         updatedAt:'2026-11-06T10:00:00.000Z'}],nextCursor:null}));
     await import('../public/js/cloud-projects.js');
     await ui.nodes.get('cloud-refresh').fire('click');
-    expect(ui.nodes.get('cloud-more').hidden).toBe(false);
+    await vi.waitFor(() => expect(ui.nodes.get('cloud-more').hidden).toBe(false));
     await ui.nodes.get('cloud-more').fire('click');
-    expect(ui.nodes.get('cloud-projects').children).toHaveLength(2);
+    await vi.waitFor(() => expect(ui.nodes.get('cloud-projects').children).toHaveLength(2));
     expect(fetchSpy.mock.calls[1][0]).toContain(encodeURIComponent(next));
     expect(ui.nodes.get('cloud-more').hidden).toBe(true);
     expect(ui.localStorage.setItem).not.toHaveBeenCalled();

@@ -125,6 +125,7 @@ describe('Editor D1 nao substitui nem herda projetos locais', () => {
     expect(ui.nodes.get('code').value).toContain('REMOTO');
     ui.nodes.get('code').value = '<html><body><h1>EDITADO</h1></body></html>';
     await ui.nodes.get('save').fire('click');
+    await vi.waitFor(() => expect(ui.nodes.get('status').textContent).toContain('Salvo na nuvem'));
     expect(spy).toHaveBeenCalledTimes(2);
     expect(JSON.parse(spy.mock.calls[1][1].body).expectedRevision).toBe(1);
     expect(ui.nodes.get('status').textContent).toContain('Salvo na nuvem');
@@ -162,6 +163,7 @@ describe('Editor D1 nao substitui nem herda projetos locais', () => {
     await vi.waitFor(() => expect(ui.nodes.get('save').disabled).toBe(false));
     ui.nodes.get('code').value = '<html><h1>RASCUNHO</h1></html>';
     await ui.nodes.get('save').fire('click');
+    await vi.waitFor(() => expect(ui.nodes.get('status').textContent).toContain('Revisão desatualizada.'));
     expect(ui.nodes.get('code').value).toContain('RASCUNHO');
     expect(ui.nodes.get('status').textContent).toContain('Revisão desatualizada.');
     expect(ui.localStorage.setItem).not.toHaveBeenCalled();

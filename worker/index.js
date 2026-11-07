@@ -4,6 +4,7 @@ import { loginUser } from "./auth/login.js";
 import {getSession,revokeSession,readSessionCookie,clearSessionCookie} from "./auth/session.js";
 import { checkAuthRateLimit } from "./auth/rate-limit.js";
 import { validateAuthTurnstile } from "./auth/turnstile.js";
+import { PLANOS } from "./billing/plans.js";
 
 const MODELO = "gemini-2.5-flash";
 
@@ -26,6 +27,24 @@ export default {
     const url = new URL(request.url);
 
     
+    // Catalogo publico de planos: consulta sem pagamento ou liberacao de creditos.
+    if (url.pathname === "/api/plans") {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return json({ erro: "Método não permitido." }, 405);
+      }
+
+      const response = json({
+        status: "pre_lancamento",
+        checkoutDisponivel: false,
+        planos: PLANOS
+      });
+
+      if (request.method === "HEAD") {
+        return new Response(null, { status: 200, headers: response.headers });
+      }
+      return response;
+    }
+
     // Autenticação de usuários
     if (url.pathname === "/api/auth/login") {
       if (request.method !== "POST") {

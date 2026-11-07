@@ -71,7 +71,7 @@ jobs:
             "@cloudflare/vitest-plugin@1.6.0"
 
       - name: Executar teste Vitest D1
-        run: ./node_modules/.bin/vitest run tests/auth-d1.integration.test.mjs tests/gerar-origin.integration.test.mjs
+        run: ./node_modules/.bin/vitest run tests/auth-d1.integration.test.mjs tests/gerar-origin.integration.test.mjs tests/plans.integration.test.mjs
 
       - name: Confirmar execucao
         run: echo "Testes de autenticacao finalizados com sucesso."

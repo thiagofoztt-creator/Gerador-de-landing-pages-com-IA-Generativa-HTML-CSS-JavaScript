@@ -135,13 +135,20 @@ jobs:
           NODE
 
       - name: Conferir integridade SQLite
+        shell: bash
         run: |
-          ./node_modules/.bin/wrangler d1 execute auth-ci-local \
+          # D1 documenta o PRAGMA quick_check para validacao de integridade.
+          # Em caso de falha, mostrar a resposta em vez de ocultar o erro no JSON.
+          if ! ./node_modules/.bin/wrangler d1 execute auth-ci-local \
             --config tests/wrangler.d1-test.jsonc \
             --local \
             --persist-to .wrangler/auth-ci \
-            --command "PRAGMA integrity_check;" \
-            --json > resultado-integridade.json
+            --command "PRAGMA quick_check;" \
+            --json > resultado-integridade.json; then
+            echo "::error::Falha ao consultar integridade do banco D1 local."
+            cat resultado-integridade.json
+            exit 1
+          fi
 
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
@@ -149,7 +156,7 @@ jobs:
 
           const data = JSON.parse(fs.readFileSync('resultado-integridade.json', 'utf8'));
           const linhas = data.flatMap(item => item.results ?? []);
-          assert.equal(linhas.length, 1);
-          assert.equal(linhas[0].integrity_check, 'ok');
-          console.log('D1 local: PRAGMA integrity_check = ok.');
+          assert.equal(linhas.length, 1, 'Resposta inesperada de PRAGMA quick_check.');
+          assert.equal(linhas[0].quick_check, 'ok', 'D1 local nao passou no quick_check.');
+          console.log('D1 local: PRAGMA quick_check = ok.');
           NODE

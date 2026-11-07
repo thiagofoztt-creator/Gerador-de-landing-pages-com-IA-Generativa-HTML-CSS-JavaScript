@@ -967,6 +967,7 @@ export class CotaDiaria extends DurableObject {
     };
   }
 
+ 
   async consultarEstadoReserva(reservaId) {
     if (
       typeof reservaId !== "string" ||

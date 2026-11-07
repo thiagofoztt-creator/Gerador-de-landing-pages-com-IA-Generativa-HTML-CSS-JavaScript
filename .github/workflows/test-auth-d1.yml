@@ -1,24 +1,4 @@
-
-name: Testes D1 Isolado - Autenticacao
-
-on:
-  push:
-    branches:
-      - desenvolvimento-sites-v2
-    paths:
-      - "tests/fixtures/auth_schema.sql"
-      - "tests/wrangler.d1-test.jsonc"
-      - "tests/fixtures/auth_sessions_test.sql"
-      - ".github/workflows/test-auth-d1.yml"
-
-  workflow_dispatch:
-
-permissions:
-  contents: read
-
-jobs:
-  testar-d1:
-    name: Validar estrutura D1 local
+    name: Validar estrutura e sessoes D1 local
     runs-on: ubuntu-latest
 
     steps:
@@ -35,22 +15,30 @@ jobs:
         with:
           bun-version: "1.4.4"
 
-      - name: Instalar dependencias
+      - name: Instalar dependencias travadas
         run: bun install --frozen-lockfile
 
-      - name: Criar banco D1 local
+      - name: Executar testes unitarios de login e sessao
+        run: node --test worker/auth/*.test.mjs
+
+      - name: Identificar commit e Wrangler
+        run: |
+          echo "Branch: $GITHUB_REF_NAME"
+          echo "Commit: $(git rev-parse HEAD)"
+          ./node_modules/.bin/wrangler --version
+
+      - name: Criar banco D1 apenas local
         run: |
           mkdir -p .wrangler/auth-ci
-
-          npx wrangler d1 execute auth-ci-local \
+          ./node_modules/.bin/wrangler d1 execute auth-ci-local \
             --config tests/wrangler.d1-test.jsonc \
             --local \
             --persist-to .wrangler/auth-ci \
             --file tests/fixtures/auth_schema.sql
 
-      - name: Verificar tabelas e indice
+      - name: Conferir tabelas e indice
         run: |
-          npx wrangler d1 execute auth-ci-local \
+          ./node_modules/.bin/wrangler d1 execute auth-ci-local \
             --config tests/wrangler.d1-test.jsonc \
             --local \
             --persist-to .wrangler/auth-ci \
@@ -58,45 +46,33 @@ jobs:
             --json > resultado-d1.json
 
           node --input-type=module <<'NODE'
-          import fs from "node:fs";
-          import assert from "node:assert/strict";
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
 
-          const data = JSON.parse(
-            fs.readFileSync("resultado-d1.json", "utf8")
-          );
-
-          const linhas = data.flatMap(
-            item => item.results ?? []
-          );
-
-          const encontrados = new Map(
-            linhas.map(item => [item.name, item.type])
-          );
-
+          const data = JSON.parse(fs.readFileSync('resultado-d1.json', 'utf8'));
+          const linhas = data.flatMap(item => item.results ?? []);
+          const encontrados = new Map(linhas.map(item => [item.name, item.type]));
           const esperados = new Map([
-            ["users", "table"],
-            ["user_credentials", "table"],
-            ["user_sessions", "table"],
-            ["idx_sessions_user", "index"]
+            ['users', 'table'],
+            ['user_credentials', 'table'],
+            ['user_sessions', 'table'],
+            ['idx_sessions_user', 'index']
           ]);
-
           assert.deepEqual(encontrados, esperados);
-
-          console.log("D1 local: estrutura validada.");
+          console.log('D1 local: tabelas e indice validados.');
           NODE
 
-          
-      - name: Executar teste de sessoes no D1 local
+      - name: Criar sessoes de teste e revogar apenas A
         run: |
-          npx wrangler d1 execute auth-ci-local \
+          ./node_modules/.bin/wrangler d1 execute auth-ci-local \
             --config tests/wrangler.d1-test.jsonc \
             --local \
             --persist-to .wrangler/auth-ci \
             --file tests/fixtures/auth_sessions_test.sql
 
-      - name: Validar revogacao isolada e integridade
+      - name: Conferir isolamento da revogacao
         run: |
-          npx wrangler d1 execute auth-ci-local \
+          ./node_modules/.bin/wrangler d1 execute auth-ci-local \
             --config tests/wrangler.d1-test.jsonc \
             --local \
             --persist-to .wrangler/auth-ci \
@@ -104,32 +80,44 @@ jobs:
               (SELECT COUNT(*) FROM users WHERE id = 'usuario-ci-001') AS usuarios,
               (SELECT COUNT(*) FROM user_sessions WHERE user_id = 'usuario-ci-001') AS sessoes,
               (SELECT COUNT(*) FROM user_sessions WHERE id = 'sessao-ci-A' AND revoked_at IS NOT NULL) AS revogadas,
+              (SELECT COUNT(*) FROM user_sessions WHERE id = 'sessao-ci-A' AND revoked_at IS NULL) AS a_nao_revogada,
               (SELECT COUNT(*) FROM user_sessions WHERE id = 'sessao-ci-B' AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP) AS ativas,
               (SELECT COUNT(*) FROM pragma_foreign_key_check) AS violacoes;" \
             --json > resultado-sessoes.json
 
           node --input-type=module <<'NODE'
-          import fs from "node:fs";
-          import assert from "node:assert/strict";
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
 
-          const data = JSON.parse(
-            fs.readFileSync("resultado-sessoes.json", "utf8")
-          );
-
-          const linhas = data.flatMap(
-            item => item.results ?? []
-          );
-
+          const data = JSON.parse(fs.readFileSync('resultado-sessoes.json', 'utf8'));
+          const linhas = data.flatMap(item => item.results ?? []);
           assert.equal(linhas.length, 1);
-
           const resultado = linhas[0];
-
           assert.equal(resultado.usuarios, 1);
           assert.equal(resultado.sessoes, 2);
           assert.equal(resultado.revogadas, 1);
+          assert.equal(resultado.a_nao_revogada, 0);
           assert.equal(resultado.ativas, 1);
           assert.equal(resultado.violacoes, 0);
-
-          console.log("D1 local: revogacao isolada aprovada.");
+          console.log('D1 local: revogacao isolada e chaves estrangeiras aprovadas.');
           NODE
 
+      - name: Conferir integridade SQLite
+        run: |
+          ./node_modules/.bin/wrangler d1 execute auth-ci-local \
+            --config tests/wrangler.d1-test.jsonc \
+            --local \
+            --persist-to .wrangler/auth-ci \
+            --command "PRAGMA integrity_check;" \
+            --json > resultado-integridade.json
+
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+
+          const data = JSON.parse(fs.readFileSync('resultado-integridade.json', 'utf8'));
+          const linhas = data.flatMap(item => item.results ?? []);
+          assert.equal(linhas.length, 1);
+          assert.equal(linhas[0].integrity_check, 'ok');
+          console.log('D1 local: PRAGMA integrity_check = ok.');
+          NODE

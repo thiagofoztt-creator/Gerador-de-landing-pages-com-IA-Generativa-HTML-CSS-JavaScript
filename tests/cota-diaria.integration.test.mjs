@@ -197,7 +197,6 @@ describe("Cota diaria - Durable Object SQLite real", () => {
 
     expect(novaReserva.permitido).toBe(true);
     expect(novaReserva.utilizadas).toBe(1);
-    ]);
   });
     
   it("impede confirmar e cancelar a mesma reserva simultaneamente", async () => {
@@ -249,7 +248,8 @@ describe("Cota diaria - Durable Object SQLite real", () => {
     expect(novaReserva.utilizadas).toBe(
       confirmacao.confirmada ? 2 : 1
     );
-  
+  });
+
   it("identifica reserva que permaneceu pendente", async () => {
     const nome = `teste-pendente-${crypto.randomUUID()}`;
     const contador = env.COTA_DIARIA.getByName(nome);
@@ -293,7 +293,7 @@ describe("Cota diaria - Durable Object SQLite real", () => {
     );
 
     expect(contadorAtual.utilizadas).toBe(1);
-    );
+  });
     
   it("identifica somente reservas pendentes antigas", async () => {
     const nome = `teste-antigas-${crypto.randomUUID()}`;
@@ -364,7 +364,8 @@ describe("Cota diaria - Durable Object SQLite real", () => {
 
     expect(novaReserva.permitido).toBe(true);
     expect(novaReserva.utilizadas).toBe(4);
-  
+  });
+
   it("identifica corretamente mais de 100 reservas antigas", async () => {
     const nome = `teste-paginacao-${crypto.randomUUID()}`;
     const contador = env.COTA_DIARIA.getByName(nome);

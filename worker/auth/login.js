@@ -2,6 +2,8 @@
 import { verifyPassword } from "./password.js";
 import { createSession } from "./session.js";
 
+const encoder = new TextEncoder();
+
 export async function loginUser(db, input) {
   if (!db) {
     return { status: 503, error: "Serviço indisponível." };
@@ -18,7 +20,8 @@ export async function loginUser(db, input) {
     !email ||
     email.length > 254 ||
     typeof password !== "string" ||
-    password.length > 256
+    password.length === 0 ||
+    encoder.encode(password).length > 256
   ) {
     return {
       status: 400,

@@ -111,7 +111,7 @@ describe("JavaScript da interface: comportamento real com DOM isolado", () => {
     const ui = setup(["btnGerar", "prompt", "status", "resultado", "preview"], {
       turnstile: { getResponse: vi.fn(() => "captcha-valido"), reset: vi.fn() }
     });
-    ui.nodes.get("prompt").value = "curto";
+    ui.nodes.get("prompt").value = "abc";
     await import("../public/js/script.js");
     const callback = ui.document.addEventListener.mock.calls.find(([name]) => name === "DOMContentLoaded")?.[1];
     expect(callback).toBeTypeOf("function");

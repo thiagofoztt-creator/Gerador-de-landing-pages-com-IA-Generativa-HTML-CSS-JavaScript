@@ -47,7 +47,7 @@
     "vars": {
       "ENABLE_GENERATION": "true",
       "ENABLE_AUTH_REGISTRATION": "false",
-      "ENABLE_PROJECTS_D1": "false"
+      "ENABLE_PROJECTS_D1": "true"
     },
     "d1_databases": [
       {

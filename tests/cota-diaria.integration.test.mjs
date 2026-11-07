@@ -692,13 +692,22 @@ describe("Cota diaria - Durable Object SQLite real", () => {
       }
     ];
 
-    // Cada cursor invalido deve produzir erro.
+    // Capturar excecoes esperadas dentro do Durable Object.
+    // Rejeicoes remotas pelo RPC podem ser reportadas como nao tratadas
+    // pelo runner mesmo quando Vitest as intercepta.
     for (const cursor of casosInvalidos) {
-      await expect(
-        contador.listarPendentesAntigas(cursor)
-      ).rejects.toThrow(
-        "Cursor de paginacao invalido."
+      const mensagem = await runInDurableObject(
+        contador,
+        async instancia => {
+          try {
+            await instancia.listarPendentesAntigas(cursor);
+            return null;
+          } catch (erro) {
+            return erro.message;
+          }
+        }
       );
+      expect(mensagem).toBe("Cursor de paginacao invalido.");
     }
 
     // Verificar que nenhuma reserva foi alterada.

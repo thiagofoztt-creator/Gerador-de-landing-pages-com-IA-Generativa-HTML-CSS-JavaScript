@@ -70,7 +70,8 @@ jobs:
             tests/auth-http-security.integration.test.mjs \
             tests/auth-access-control.integration.test.mjs \
             tests/gerar-origin.integration.test.mjs \
-            tests/plans.integration.test.mjs
+            tests/plans.integration.test.mjs \
+            tests/cota-diaria.integration.test.mjs
           test -s coverage/lcov.info
           grep -q '^SF:.*worker/' coverage/lcov.info
 

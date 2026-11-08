@@ -1,0 +1,95 @@
+name: Testes Vitest - Autenticacao D1
+
+on:
+  push:
+    branches:
+      - desenvolvimento-sites-v2
+    paths:
+      - "worker/**"
+      - "tests/**"
+      - "public/planos/**"
+      - "public/index.html"
+      - "public/js/**"
+      - "public/editor.html"
+      - "public/projetos.html"
+      - "vitest.config.mjs"
+      - "wrangler.jsonc"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/test-auth-vitest.yml"
+
+  pull_request:
+    branches:
+      - desenvolvimento-sites-v2
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testar-vitest:
+    name: Validar autenticacao no Workers
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+
+      - name: Diagnosticar commit e sintaxe do Worker
+        shell: bash
+        run: |
+          echo "Branch: $GITHUB_REF_NAME"
+          echo "Commit da execucao: $GITHUB_SHA"
+          echo "Commit do checkout: $(git rev-parse HEAD)"
+          echo "Trecho do Worker, linhas 960 a 977:"
+          nl -ba worker/index.js | sed -n '960,977p'
+          echo "Verificando sintaxe JavaScript..."
+          node --check worker/index.js
+
+      - name: Testar autenticacao e sessoes com Node.js
+        run: node --test worker/auth/*.test.mjs
+
+      - name: Testar interface do gerador e catalogo de planos
+        run: node --test tests/gerador-ui.test.mjs tests/pricing-page.test.mjs
+
+      - name: Configurar Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Instalar dependencias existentes
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      # Versoes fixadas e scripts de instalacao desativados para reduzir riscos.
+      # Versionar as dependencias de teste no lockfile sera uma melhoria futura.
+      - name: Instalar dependencias temporarias de teste
+        run: |
+          bun add -d -E --ignore-scripts "vitest@4.1.12" \
+            "@cloudflare/vitest-plugin@1.6.0" \
+            "@vitest/coverage-istanbul@4.1.12"
+
+      - name: Executar integracao, autorizacao e medir cobertura
+        run: ./node_modules/.bin/vitest run --coverage tests/auth-d1.integration.test.mjs tests/gerar-origin.integration.test.mjs tests/plans.integration.test.mjs tests/auth-http-security.integration.test.mjs tests/auth-access-control.integration.test.mjs tests/cota-diaria.integration.test.mjs tests/coverage-security.integration.test.mjs tests/coverage-routes.integration.test.mjs tests/frontend-js.integration.test.mjs tests/projects-d1.integration.test.mjs tests/cloud-ui.integration.test.mjs tests/cloud-projects.integration.test.mjs
+
+      - name: Validar relatorio LCOV para futura integracao com SonarQube
+        run: |
+          test -s coverage/lcov.info
+          grep -q '^SF:.*worker/' coverage/lcov.info
+          echo "Relatorio LCOV gerado e validado em coverage/lcov.info"
+
+      - name: Armazenar relatorio LCOV para auditoria
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cobertura-worker-lcov
+          path: coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Confirmar execucao
+        run: echo "Testes de autenticacao finalizados com sucesso."

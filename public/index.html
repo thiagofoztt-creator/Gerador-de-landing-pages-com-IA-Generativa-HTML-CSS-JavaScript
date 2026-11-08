@@ -1,61 +1,62 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Criador de Sites — Thiago IA</title>
-    <link rel="stylesheet" href="style.css">
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap"
-        rel="stylesheet">
-    
-<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Transforme suas ideias em páginas profissionais com inteligência artificial.">
+  <meta name="theme-color" content="#0a0615">
+  <title>Thiago IA — Criador de Sites</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
+  <div class="ambient ambient-one" aria-hidden="true"></div>
+  <div class="ambient ambient-two" aria-hidden="true"></div>
+  <header class="site-header">
+    <nav class="nav container" aria-label="Navegação principal">
+      <a class="brand" href="#inicio" aria-label="Thiago IA - Início"><span class="brand-mark" aria-hidden="true">✦</span><span>Thiago<span class="brand-accent">IA</span></span></a>
+      <div class="nav-links"><a href="#inicio">Início</a><a href="#recursos">Recursos</a><a href="#criador">Criar site</a><a href="/projetos.html">Meus projetos</a><a href="/planos/">Planos</a></div>
+      <a class="nav-action" href="#criador">Começar agora <span aria-hidden="true">↗</span></a>
+    </nav>
+  </header>
 
-    <!-- Card principal -->
-    <div class="card">
+  <main id="inicio">
+    <section class="hero container" aria-labelledby="hero-title">
+      <div class="eyebrow"><span class="eyebrow-icon" aria-hidden="true">✧</span> Seu próximo site começa com uma ideia</div>
+      <h1 id="hero-title">Seu site merece ser<br><span class="gradient-text">mais do que bonito.</span></h1>
+      <p class="hero-copy">Da ideia à primeira versão em instantes. Descreva seu negócio e deixe a inteligência artificial construir uma página moderna, responsiva e pronta para personalizar.</p>
+      <div class="hero-actions"><a class="button button-primary" href="#criador">✦ Criar meu site <span aria-hidden="true">↗</span></a><a class="button button-secondary" href="/planos/">Consultar planos</a></div>
+      <p class="hero-footnote">Comece com Gemini • GPT será disponibilizado futuramente</p>
+    </section>
 
-        <div class="badge">⚡ Thiago — Gerador com IA</div>
-
-        <h1>Crie sua página<br>com <em>inteligência</em></h1>
-
-        <p class="subtitle">
-            Descreva o seu negócio e veja a IA criar uma página profissional em segundos — sem código, sem complicação.
-        </p>
-
-        <label class="field-label" for="prompt">Descreva seu negócio</label>
-
-        <div class="textarea-wrap">
-            <textarea
-                id="prompt"
-                placeholder="Ex: Sou Estudante da Ciência da Computação e estou criando projetos afins de estudo em Curitiba"
-            ></textarea>
+    <section class="workspace-shell container" id="criador" aria-labelledby="workspace-title">
+      <div class="workspace-topbar"><div class="workspace-dots" aria-hidden="true"><i></i><i></i><i></i></div><span class="workspace-title" id="workspace-title">Thiago IA / Meu espaço criativo</span><span class="workspace-status"><span class="status-dot"></span> Ambiente de criação</span></div>
+      <div class="workspace-layout">
+        <aside class="workspace-sidebar" aria-label="Navegação do espaço de criação"><div class="sidebar-symbol">✦</div><a class="sidebar-icon active" href="#criador" aria-label="Criar site" title="Criar site">✧</a><a class="sidebar-icon" href="#recursos" aria-label="Ver recursos" title="Recursos">▦</a><span class="sidebar-spacer"></span><a class="sidebar-icon" href="/projetos.html" title="Projetos salvos neste navegador" aria-label="Meus projetos locais">▤</a></aside>
+        <div class="workspace-main">
+          <div class="editor-heading"><div><p class="kicker">ESTÚDIO DE CRIAÇÃO</p><h2>Crie algo <span class="gradient-text">incrível.</span></h2><p>Conte o que você precisa. A IA prepara a sua página.</p></div><span class="version-pill">BETA 2.0</span></div>
+          <div class="card">
+            <div class="form-top"><span class="form-icon">✦</span><div><strong>Gerador com IA</strong><small>Transforme sua descrição em um site</small></div></div>
+            <label class="field-label" for="prompt">Descreva seu negócio ou projeto</label>
+            <div class="textarea-wrap"><textarea id="prompt" minlength="5" maxlength="500" placeholder="Ex.: Crie uma página profissional para minha empresa de tecnologia, com seção de serviços, benefícios, depoimentos e contato..."></textarea></div>
+            <div class="form-choices"><div><span class="choice-label">Modelo de inteligência artificial</span><div class="model-line"><span class="model-active"><span class="model-spark">✦</span> Gemini <span class="live-mark">Ativo</span></span><span class="model-disabled" title="O GPT ainda não foi integrado">GPT <span>Em breve</span></span></div></div><div class="character-hint">Até 500 caracteres</div></div>
+            <div class="turnstile-area"><div class="cf-turnstile" data-sitekey="0x4AAAAAAFp5IeD0PVhd6AOv" data-theme="dark"></div></div>
+            <button class="btn-gerar button button-primary" id="btnGerar" type="button">✦ Gerar minha página <span aria-hidden="true">↗</span></button>
+            <p class="status" id="status" role="status" aria-live="polite"></p>
+            <div class="divider"></div><p class="footer-note">✧ Geração por IA &nbsp;·&nbsp; Visualização segura &nbsp;·&nbsp; Design responsivo</p>
+          </div>
+          <div class="resultado" id="resultado" style="display:none;"><div class="resultado-heading"><p class="resultado-label">✦ Sua página gerada</p><span>Pré-visualização</span></div><iframe id="preview" title="Pré-visualização da página gerada" sandbox="" referrerpolicy="no-referrer"></iframe></div>
         </div>
-        <!-- Proteção Cloudflare Turnstile -->
-        <div  class="cf-turnstile"  data-sitekey="0x4AAAAAAFp5IeD0PVhd6AOv"  data-theme="dark"></div>
+        <aside class="workspace-info" aria-label="Recursos do criador"><p class="kicker">RECURSOS</p><div class="info-card"><span>✧</span><strong>Criação inteligente</strong><small>Uma página personalizada a partir de sua ideia.</small></div><div class="info-card"><span>◫</span><strong>Pré-visualização</strong><small>Confira o resultado sem sair da plataforma.</small></div><div class="info-card"><span>♢</span><strong>Editor visual</strong><small>Após gerar, edite textos e cores antes de salvar.</small></div></aside>
+      </div>
+    </section>
 
-        <button class="btn-gerar" id="btnGerar">✦ Gerar minha página</button>
-
-        <p class="status" id="status"></p>
-
-        <div class="divider"></div>
-
-        <p class="footer-note">
-        <span>IA generativa</span> &nbsp;·&nbsp;
-        </p>
-
-    </div>
-    
-    <div class="resultado" id="resultado" style="display:none;">
-        <p class="resultado-label">✦ Sua página gerada</p>
-        <iframe id="preview" frameborder="0" sandbox="" referrerpolicy="no-referrer"></iframe>
-    </div>
-
-    <script src="js/script.js"></script>
+    <section class="features container" id="recursos" aria-labelledby="features-title"><p class="kicker">O QUE VOCÊ PODE CRIAR</p><h2 id="features-title">Uma ideia. <span class="gradient-text">Muitas possibilidades.</span></h2><div class="feature-grid"><article class="feature"><span>✦</span><h3>Design com IA</h3><p>Descreva o que você precisa e receba uma página criada para o seu objetivo.</p></article><article class="feature"><span>▣</span><h3>Visual responsivo</h3><p>Layouts preparados para diferentes tamanhos de tela, de celulares a desktops.</p></article><article class="feature"><span>◈</span><h3>Projetos locais</h3><p>Salve e reabra seus projetos neste navegador. Sincronização por conta ainda não está disponível.</p></article></div></section>
+  </main>
+  <footer class="site-footer container"><span>✦ Thiago IA</span><span>Plataforma de criação de sites com inteligência artificial</span></footer>
+  <script src="js/script.js"></script>
 </body>
 </html>

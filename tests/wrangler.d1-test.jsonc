@@ -1,0 +1,27 @@
+
+{
+  "name": "thiagoia-auth-ci-test",
+  "main": "../worker/index.js",
+  "compatibility_date": "2026-10-28",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "auth-ci-local",
+      "database_id": "00000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "COTA_DIARIA",
+        "class_name": "CotaDiaria"
+      }
+    ]
+  },
+  "exports": {
+    "CotaDiaria": {
+      "type": "durable-object",
+      "storage": "sqlite"
+    }
+  }
+}

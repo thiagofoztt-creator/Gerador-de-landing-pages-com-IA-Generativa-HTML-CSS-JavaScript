@@ -1,17 +1,16 @@
-
-
 {
   "name": "gerador-de-landing-pages-com-ia",
   "keep_vars": true,
   "main": "worker/index.js",
   "compatibility_date": "2026-10-28",
-
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
-    "run_worker_first": ["/gerar"]
+    "run_worker_first": [
+      "/gerar",
+      "/api/*"
+    ]
   },
-
   "ratelimits": [
     {
       "name": "LIMITE_GERACAO",
@@ -20,9 +19,16 @@
         "limit": 20,
         "period": 60
       }
+    },
+    {
+      "name": "AUTH_RATE_LIMIT",
+      "namespace_id": "2004",
+      "simple": {
+        "limit": 5,
+        "period": 60
+      }
     }
   ],
-
   "durable_objects": {
     "bindings": [
       {
@@ -31,11 +37,50 @@
       }
     ]
   },
-
   "exports": {
     "CotaDiaria": {
       "type": "durable-object",
       "storage": "sqlite"
+    }
+  },
+  "previews": {
+    "vars": {
+      "ENABLE_GENERATION": "true",
+      "ENABLE_AUTH_REGISTRATION": "false",
+      "ENABLE_PROJECTS_D1": "true"
+    },
+    "d1_databases": [
+      {
+        "binding": "DB",
+        "database_name": "thiagoia-hml",
+        "database_id": "c0de557a-dfa6-484d-a0e1-14cbcd7f7789"
+      }
+    ],
+    "ratelimits": [
+      {
+        "name": "LIMITE_GERACAO",
+        "namespace_id": "2002",
+        "simple": {
+          "limit": 20,
+          "period": 60
+        }
+      },
+      {
+        "name": "AUTH_RATE_LIMIT",
+        "namespace_id": "2003",
+        "simple": {
+          "limit": 5,
+          "period": 60
+        }
+      }
+    ],
+    "durable_objects": {
+      "bindings": [
+        {
+          "name": "COTA_DIARIA",
+          "class_name": "CotaDiaria"
+        }
+      ]
     }
   }
 }

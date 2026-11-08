@@ -1,0 +1,72 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Teste de Cadastro - ThiagoIA</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #151020;
+      color: white;
+      padding: 32px;
+      max-width: 600px;
+      margin: auto;
+    }
+    button {
+      background: #8650e9;
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      padding: 14px 20px;
+      cursor: pointer;
+    }
+    pre {
+      background: #272033;
+      padding: 16px;
+      border-radius: 8px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h1>Teste de cadastro ThiagoIA</h1>
+  <p>Verificar se o cadastro está bloqueado.</p>
+
+  <button id="testar">Executar teste POST</button>
+  <pre id="resultado">Nenhum teste executado.</pre>
+
+  <script>
+    document.getElementById("testar")
+      .addEventListener("click", async () => {
+        const resultado =
+          document.getElementById("resultado");
+
+        resultado.textContent = "Executando teste...";
+
+        try {
+          const resposta = await fetch(
+            "/api/auth/register",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({})
+            }
+          );
+
+          const texto = await resposta.text();
+
+          resultado.textContent =
+            "Status HTTP: " + resposta.status +
+            "\nResposta: " + texto;
+        } catch (erro) {
+          resultado.textContent =
+            "Falha na requisição: " + erro.message;
+        }
+      });
+  </script>
+</body>
+</html>

@@ -1,0 +1,222 @@
+name: Testes D1 Isolado - Autenticacao
+
+on:
+  push:
+    branches:
+      - desenvolvimento-sites-v2
+    paths:
+      - "worker/auth/**"
+      - "worker/billing/**"
+      - "tests/fixtures/billing_schema.sql"
+      - "tests/fixtures/billing_cycle_test.sql"
+      - "tests/billing-plans.test.mjs"
+      - "tests/fixtures/auth_schema.sql"
+      - "tests/fixtures/auth_sessions_test.sql"
+      - "tests/wrangler.d1-test.jsonc"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/test-auth-d1.yml"
+  pull_request:
+    branches:
+      - desenvolvimento-sites-v2
+    paths:
+      - "worker/auth/**"
+      - "worker/billing/**"
+      - "tests/fixtures/billing_schema.sql"
+      - "tests/fixtures/billing_cycle_test.sql"
+      - "tests/billing-plans.test.mjs"
+      - "tests/fixtures/auth_schema.sql"
+      - "tests/fixtures/auth_sessions_test.sql"
+      - "tests/wrangler.d1-test.jsonc"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/test-auth-d1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  testar-d1:
+    name: Validar estrutura e sessoes D1 local
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar codigo
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+
+      - name: Configurar Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Instalar dependencias travadas
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Executar testes unitarios de login e sessao
+        run: node --test worker/auth/*.test.mjs
+
+      - name: Executar testes unitarios do catalogo de planos
+        run: node --test tests/billing-plans.test.mjs
+
+      - name: Identificar commit e Wrangler
+        run: |
+          echo "Branch: $GITHUB_REF_NAME"
+          echo "Commit: $(git rev-parse HEAD)"
+          ./node_modules/.bin/wrangler --version
+
+      - name: Criar banco D1 apenas local
+        run: |
+          mkdir -p .wrangler/auth-ci
+          ./node_modules/.bin/wrangler d1 execute auth-ci-local \
+            --config tests/wrangler.d1-test.jsonc \
+            --local \
+            --persist-to .wrangler/auth-ci \
+            --file tests/fixtures/auth_schema.sql
+
+      - name: Conferir tabelas e indice
+        run: |
+          ./node_modules/.bin/wrangler d1 execute auth-ci-local \
+            --config tests/wrangler.d1-test.jsonc \
+            --local \
+            --persist-to .wrangler/auth-ci \
+            --command "SELECT name, type FROM sqlite_master WHERE name IN ('users', 'user_credentials', 'user_sessions', 'idx_sessions_user') ORDER BY name;" \
+            --json > resultado-d1.json
+
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+
+          const data = JSON.parse(fs.readFileSync('resultado-d1.json', 'utf8'));
+          const linhas = data.flatMap(item => item.results ?? []);
+          const encontrados = new Map(linhas.map(item => [item.name, item.type]));
+          const esperados = new Map([
+            ['users', 'table'],
+            ['user_credentials', 'table'],
+            ['user_sessions', 'table'],
+            ['idx_sessions_user', 'index']
+          ]);
+          assert.deepEqual(encontrados, esperados);
+          console.log('D1 local: tabelas e indice validados.');
+          NODE
+
+      - name: Criar sessoes de teste e revogar apenas A
+        run: |
+          ./node_modules/.bin/wrangler d1 execute auth-ci-local \
+            --config tests/wrangler.d1-test.jsonc \
+            --local \
+            --persist-to .wrangler/auth-ci \
+            --file tests/fixtures/auth_sessions_test.sql
+
+      - name: Conferir isolamento da revogacao
+        run: |
+          ./node_modules/.bin/wrangler d1 execute auth-ci-local \
+            --config tests/wrangler.d1-test.jsonc \
+            --local \
+            --persist-to .wrangler/auth-ci \
+            --command "SELECT
+              (SELECT COUNT(*) FROM users WHERE id = 'usuario-ci-001') AS usuarios,
+              (SELECT COUNT(*) FROM user_sessions WHERE user_id = 'usuario-ci-001') AS sessoes,
+              (SELECT COUNT(*) FROM user_sessions WHERE id = 'sessao-ci-A' AND revoked_at IS NOT NULL) AS revogadas,
+              (SELECT COUNT(*) FROM user_sessions WHERE id = 'sessao-ci-A' AND revoked_at IS NULL) AS a_nao_revogada,
+              (SELECT COUNT(*) FROM user_sessions WHERE id = 'sessao-ci-B' AND revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP) AS ativas,
+              (SELECT COUNT(*) FROM pragma_foreign_key_check) AS violacoes;" \
+            --json > resultado-sessoes.json
+
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+
+          const data = JSON.parse(fs.readFileSync('resultado-sessoes.json', 'utf8'));
+          const linhas = data.flatMap(item => item.results ?? []);
+          assert.equal(linhas.length, 1);
+          const resultado = linhas[0];
+          assert.equal(resultado.usuarios, 1);
+          assert.equal(resultado.sessoes, 2);
+          assert.equal(resultado.revogadas, 1);
+          assert.equal(resultado.a_nao_revogada, 0);
+          assert.equal(resultado.ativas, 1);
+          assert.equal(resultado.violacoes, 0);
+          console.log('D1 local: revogacao isolada e chaves estrangeiras aprovadas.');
+          NODE
+
+      - name: Preparar planos e creditos no D1 descartavel
+        run: |
+          ./node_modules/.bin/wrangler d1 execute auth-ci-local \
+            --config tests/wrangler.d1-test.jsonc \
+            --local \
+            --persist-to .wrangler/auth-ci \
+            --file tests/fixtures/billing_schema.sql
+
+          ./node_modules/.bin/wrangler d1 execute auth-ci-local \
+            --config tests/wrangler.d1-test.jsonc \
+            --local \
+            --persist-to .wrangler/auth-ci \
+            --file tests/fixtures/billing_cycle_test.sql
+
+      - name: Validar planos creditos e isolamento entre clientes
+        run: |
+          ./node_modules/.bin/wrangler d1 execute auth-ci-local \
+            --config tests/wrangler.d1-test.jsonc \
+            --local \
+            --persist-to .wrangler/auth-ci \
+            --command "SELECT
+              (SELECT COUNT(*) FROM billing_plans) AS planos,
+              (SELECT COUNT(*) FROM billing_subscriptions WHERE status='active') AS assinaturas,
+              (SELECT credits_used FROM billing_credit_periods WHERE id='billing-ci-period-1') AS usados_a,
+              (SELECT credits_reserved FROM billing_credit_periods WHERE id='billing-ci-period-1') AS reservados_a,
+              (SELECT credits_total - credits_used - credits_reserved FROM billing_credit_periods WHERE id='billing-ci-period-1') AS saldo_a,
+              (SELECT credits_used FROM billing_credit_periods WHERE id='billing-ci-period-2') AS usados_b,
+              (SELECT credits_total FROM billing_credit_periods WHERE id='billing-ci-period-2') AS total_b,
+              (SELECT COUNT(*) FROM pragma_foreign_key_check) AS violacoes;" \
+            --json > resultado-creditos.json
+
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+          const data = JSON.parse(fs.readFileSync('resultado-creditos.json', 'utf8'));
+          const result = data.flatMap(item => item.results ?? []);
+          assert.equal(result.length, 1);
+          const r = result[0];
+          assert.equal(r.planos, 3);
+          assert.equal(r.assinaturas, 2);
+          assert.equal(r.usados_a, 1);
+          assert.equal(r.reservados_a, 0);
+          assert.equal(r.saldo_a, 9);
+          assert.equal(r.usados_b, 0);
+          assert.equal(r.total_b, 40);
+          assert.equal(r.violacoes, 0);
+          console.log('D1 local: planos, limites e isolamento aprovados.');
+          NODE
+
+      - name: Conferir integridade SQLite
+        shell: bash
+        run: |
+          # D1 documenta o PRAGMA quick_check para validacao de integridade.
+          # Em caso de falha, mostrar a resposta em vez de ocultar o erro no JSON.
+          if ! ./node_modules/.bin/wrangler d1 execute auth-ci-local \
+            --config tests/wrangler.d1-test.jsonc \
+            --local \
+            --persist-to .wrangler/auth-ci \
+            --command "PRAGMA quick_check;" \
+            --json > resultado-integridade.json; then
+            echo "::error::Falha ao consultar integridade do banco D1 local."
+            cat resultado-integridade.json
+            exit 1
+          fi
+
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          import assert from 'node:assert/strict';
+
+          const data = JSON.parse(fs.readFileSync('resultado-integridade.json', 'utf8'));
+          const linhas = data.flatMap(item => item.results ?? []);
+          assert.equal(linhas.length, 1, 'Resposta inesperada de PRAGMA quick_check.');
+          assert.equal(linhas[0].quick_check, 'ok', 'D1 local nao passou no quick_check.');
+          console.log('D1 local: PRAGMA quick_check = ok.');
+          NODE

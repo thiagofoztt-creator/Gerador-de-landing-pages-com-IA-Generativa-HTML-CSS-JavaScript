@@ -1,4 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
+import { registerUser } from "./auth/register.js";
+import { loginUser } from "./auth/login.js";
+import {getSession,revokeSession,readSessionCookie,clearSessionCookie} from "./auth/session.js";
+import { checkAuthRateLimit } from "./auth/rate-limit.js";
+import { validateAuthTurnstile } from "./auth/turnstile.js";
+import { PLANOS } from "./billing/plans.js";
+import { handleProjects } from "./projects/api.js";
+
 const MODELO = "gemini-2.5-flash";
 
 const GEMINI_URL =
@@ -19,6 +27,328 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    
+    // Projetos privados D1: recurso permanece desabilitado ate homologacao.
+    if (url.pathname === "/api/projects" || url.pathname.startsWith("/api/projects/")) {
+      return handleProjects(request, env);
+    }
+
+    // Catalogo publico de planos: consulta sem pagamento ou liberacao de creditos.
+    if (url.pathname === "/api/plans") {
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return json({ erro: "Método não permitido." }, 405);
+      }
+
+      const response = json({
+        status: "pre_lancamento",
+        checkoutDisponivel: false,
+        planos: PLANOS
+      });
+
+      if (request.method === "HEAD") {
+        return new Response(null, { status: 200, headers: response.headers });
+      }
+      return response;
+    }
+
+    // Autenticação de usuários
+    if (url.pathname === "/api/auth/login") {
+      if (request.method !== "POST") {
+        return json({ erro: "Método não permitido." }, 405);
+      }
+
+      if (!env.DB) {
+        return json({ erro: "Banco indisponível." }, 503);
+      }
+
+      const origin = request.headers.get("Origin");
+
+      if (origin !== url.origin) {
+        return json({ erro: "Origem não autorizada." }, 403);
+      }
+
+      const limit = await checkAuthRateLimit(
+        request,
+        env,
+        "login"
+      );
+
+      if (!limit.allowed) {
+        return json({ erro: limit.error }, limit.status);
+      }
+
+      const type = request.headers.get("content-type") || "";
+
+      if (!type.toLowerCase().includes("application/json")) {
+        return json({ erro: "JSON obrigatório." }, 415);
+      }
+
+      const length = Number(
+        request.headers.get("content-length") || 0
+      );
+
+      if (length > 4096) {
+        return json({ erro: "Requisição muito grande." }, 413);
+      }
+
+      let body;
+
+      try {
+        const bodyText = await request.text();
+
+        if (bodyText.length > 4096) {
+          return json({ erro: "Requisição muito grande." }, 413);
+        }
+
+        body = JSON.parse(bodyText);
+      } catch {
+        return json({ erro: "JSON inválido." }, 400);
+      }
+
+      const validTurnstile = await validateAuthTurnstile(
+        request,
+        env,
+        body?.turnstileToken,
+        "login"
+      );
+
+      if (!validTurnstile) {
+        return json({
+          erro: "Verificação de segurança inválida."
+        }, 403);
+      }
+
+      const result = await loginUser(env.DB, body);
+
+      if (result.status !== 200) {
+        return json({ erro: result.error }, result.status);
+      }
+
+      const response = json({
+        usuario: result.user
+      }, 200);
+
+      response.headers.set("Set-Cookie", result.cookie);
+
+      return response;
+    }
+     
+    // Consultar usuario autenticado
+    if (url.pathname === "/api/auth/me") {
+      if (request.method !== "GET") {
+        return json({ erro: "Método não permitido." }, 405);
+      }
+
+      if (!env.DB) {
+        return json({ erro: "Banco indisponível." }, 503);
+      }
+
+      try {
+        const token = readSessionCookie(request);
+
+        if (!token) {
+          return json({
+            erro: "Sessão não autenticada."
+          }, 401);
+        }
+
+        const session = await getSession(env.DB, token);
+
+        if (!session) {
+          return json({
+            erro: "Sessão inválida ou expirada."
+          }, 401);
+        }
+
+        const usuario = await env.DB.prepare(`
+          SELECT id, email, display_name
+          FROM users
+          WHERE id = ?
+          LIMIT 1
+        `).bind(session.user_id).first();
+
+        if (!usuario) {
+          return json({
+            erro: "Usuário não encontrado."
+          }, 401);
+        }
+
+        return json({
+          autenticado: true,
+          usuario: {
+            id: usuario.id,
+            email: usuario.email,
+            name: usuario.display_name
+          }
+        }, 200);
+
+      } catch {
+        console.error("Falha ao consultar sessao.");
+
+        return json({
+          erro: "Autenticação temporariamente indisponível."
+        }, 503);
+      }
+    }
+
+    
+    // Encerramento seguro da sessão
+    if (url.pathname === "/api/auth/logout") {
+      if (request.method !== "POST") {
+        return json({ erro: "Método não permitido." }, 405);
+      }
+
+      const origin = request.headers.get("Origin");
+
+      if (origin !== url.origin) {
+        return json({ erro: "Origem não autorizada." }, 403);
+      }
+
+      if (!env.DB) {
+        return json({ erro: "Banco indisponível." }, 503);
+      }
+
+      try {
+        const token = readSessionCookie(request);
+
+        if (!token) {
+          const response = json({
+            erro: "Sessão não autenticada."
+          }, 401);
+
+          response.headers.set(
+            "Set-Cookie",
+            clearSessionCookie()
+          );
+
+          return response;
+        }
+
+        const session = await getSession(env.DB, token);
+
+        if (!session) {
+          const response = json({
+            erro: "Sessão inválida ou expirada."
+          }, 401);
+
+          response.headers.set(
+            "Set-Cookie",
+            clearSessionCookie()
+          );
+
+          return response;
+        }
+
+        const revoked = await revokeSession(
+          env.DB,
+          session.id
+        );
+
+        if (!revoked) {
+          return json({
+            erro: "Não foi possível encerrar a sessão."
+          }, 503);
+        }
+
+        const response = json({
+          mensagem: "Sessão encerrada com sucesso."
+        }, 200);
+
+        response.headers.set(
+          "Set-Cookie",
+          clearSessionCookie()
+        );
+
+        return response;
+
+      } catch {
+        console.error("Falha interna no logout.");
+
+        return json({
+          erro: "Logout temporariamente indisponível."
+        }, 503);
+      }
+    }
+
+    
+    // Cadastro de usuários — desativado por padrão
+    if (url.pathname === "/api/auth/register") {
+      if (request.method !== "POST") {
+        return json({ erro: "Método não permitido." }, 405);
+      }
+
+      if (env.ENABLE_AUTH_REGISTRATION !== "true") {
+        return json({ erro: "Cadastro ainda não disponível." }, 503);
+      }
+
+      if (!env.DB) {
+        return json({ erro: "Banco indisponível." }, 503);
+      }
+
+      const origin = request.headers.get("Origin");
+      if (origin !== url.origin) {
+        return json({ erro: "Origem não autorizada." }, 403);
+      }
+
+      const limit = await checkAuthRateLimit(
+        request,
+        env,
+        "register"
+      );
+
+      if (!limit.allowed) {
+        return json({ erro: limit.error }, limit.status);
+      }
+
+      const type = request.headers.get("content-type") || "";
+      if (!type.toLowerCase().includes("application/json")) {
+        return json({ erro: "JSON obrigatório." }, 415);
+      }
+
+      const length = Number(
+        request.headers.get("content-length") || 0
+      );
+
+      if (length > 4096) {
+        return json({ erro: "Requisição muito grande." }, 413);
+      }
+
+      const bodyText = await request.text();
+
+      if (bodyText.length > 4096) {
+        return json({ erro: "Requisição muito grande." }, 413);
+      }
+
+      let body;
+      try {
+        body = JSON.parse(bodyText);
+      } catch {
+        return json({ erro: "JSON inválido." }, 400);
+      }
+
+      const validTurnstile = await validateAuthTurnstile(
+        request,
+        env,
+        body?.turnstileToken,
+        "register"
+      );
+
+      if (!validTurnstile) {
+        return json({
+          erro: "Verificação de segurança inválida."
+        }, 403);
+      }
+
+      const result = await registerUser(env.DB, body);
+
+      return json(
+        result.user
+          ? { usuario: result.user }
+          : { erro: result.error },
+        result.status
+      );
+    }
+
     // Permitir somente POST /gerar
     if (url.pathname !== "/gerar") {
       return json({ erro: "Rota não encontrada." }, 404);
@@ -27,6 +357,16 @@ export default {
     if (request.method !== "POST") {
       return json({ erro: "Método não permitido." }, 405);
     }
+    
+    // Bloquear requisicoes de origens nao autorizadas.
+    const origemGeracao = request.headers.get("Origin");
+
+    if (origemGeracao !== url.origin) {
+      return json({
+        erro: "Origem não autorizada."
+      }, 403);
+    }
+
 
     // A geração permanece desativada até
     // concluirmos as proteções da API.
@@ -41,6 +381,10 @@ export default {
         erro: "Serviço de IA não configurado."
       }, 503);
     }
+    // Controlar a reserva durante o processamento da IA.
+    let contador = null;
+    let reservaId = null;
+    let reservaConfirmada = false;
 
     try {
       const tipo = request.headers.get("content-type") || "";
@@ -166,13 +510,16 @@ export default {
         }, 503);
       }
 
-      // Todos os usuários compartilham o mesmo contador
-      const contador = env.COTA_DIARIA.getByName(
+      contador = env.COTA_DIARIA.getByName(
         "gerador-global"
       );
 
       // Reservar uma geração antes de chamar o Gemini
       const cota = await contador.reservar();
+      
+      if (cota.permitido === true) {
+        reservaId = cota.reservaId;
+      }
 
       if (!cota.permitido) {
         return json({
@@ -342,8 +689,20 @@ console.log(
           erro: "A IA não retornou HTML completo."
         }, 502);
       }
+      // Confirmar a reserva somente apos gerar HTML valido.
+      if (!contador || !reservaId) {
+        throw new Error("Reserva da geracao nao identificada.");
+      }
 
-      // Retornar a página gerada
+      const confirmacao = await contador.confirmar(reservaId);
+
+      if (confirmacao.confirmada !== true) {
+        throw new Error("Falha ao confirmar reserva da geracao.");
+      }
+
+      reservaConfirmada = true;
+
+      // Retornar a pagina gerada.
       return json({ codigo });
 
     } catch (erro) {
@@ -352,49 +711,316 @@ console.log(
       return json({
         erro: "Não foi possível gerar a página."
       }, 500);
+
+    } finally {
+      // Cancelar reservas que nao foram confirmadas.
+      if (contador && reservaId && !reservaConfirmada) {
+        try {
+          const cancelamento = await contador.cancelar(
+            reservaId
+          );
+
+          if (cancelamento.cancelada === true) {
+            console.log("Reserva cancelada apos falha na geracao.");
+          } else {
+            console.error(
+              "Reserva nao foi cancelada; verificar estado:",
+              reservaId
+            );
+          }
+        } catch (erroCancelamento) {
+          console.error(
+            "Falha ao cancelar reserva:",
+            reservaId,
+            erroCancelamento.message
+         );
+        }
+      }
     }
   }
 };
-
 
 export class CotaDiaria extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
 
+    // Contador diario de geracoes
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS cotas (
         dia TEXT PRIMARY KEY,
         utilizadas INTEGER NOT NULL
       )
     `);
+
+    // Registro individual das reservas
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS reservas (
+        id TEXT PRIMARY KEY,
+        dia TEXT NOT NULL,
+        status TEXT NOT NULL
+          CHECK (
+            status IN (
+              'reservada',
+              'confirmada',
+              'cancelada'
+            )
+          ),
+        criada_em TEXT NOT NULL,
+        atualizada_em TEXT NOT NULL
+      )
+    `);
+
+    // Indice para consultas de reservas
+    this.ctx.storage.sql.exec(`
+      CREATE INDEX IF NOT EXISTS idx_reservas_dia_status
+      ON reservas (dia, status)
+    `);
   }
 
-  async reservar() {
+    async reservar() {
     const dia = new Date().toISOString().slice(0, 10);
     const limite = 50;
 
-    const linhas = this.ctx.storage.sql.exec(`
-      INSERT INTO cotas (dia, utilizadas)
-      VALUES (?, 1)
-      ON CONFLICT(dia)
-      DO UPDATE SET utilizadas = utilizadas + 1
-      WHERE utilizadas < ?
-      RETURNING utilizadas
-    `, dia, limite).toArray();
+    const id = crypto.randomUUID();
+    const agora = new Date().toISOString();
 
-    if (linhas.length === 0) {
+    return this.ctx.storage.transactionSync(() => {
+      const linhas = this.ctx.storage.sql.exec(`
+        INSERT INTO cotas (dia, utilizadas)
+        VALUES (?, 1)
+        ON CONFLICT(dia)
+        DO UPDATE SET utilizadas = utilizadas + 1
+        WHERE utilizadas < ?
+        RETURNING utilizadas
+      `, dia, limite).toArray();
+
+      if (linhas.length === 0) {
+        return {
+          permitido: false,
+          utilizadas: limite,
+          limite
+        };
+      }
+
+      this.ctx.storage.sql.exec(`
+        INSERT INTO reservas (
+          id,
+          dia,
+          status,
+          criada_em,
+          atualizada_em
+        )
+        VALUES (?, ?, 'reservada', ?, ?)
+      `, id, dia, agora, agora);
+
+      
       return {
-        permitido: false,
-        utilizadas: limite,
+        permitido: true,
+        reservaId: id,
+        utilizadas: linhas[0].utilizadas,
         limite
+      };
+    });
+  }
+    
+  async confirmar(reservaId) {
+    if (typeof reservaId !== "string" || !reservaId) {
+      return { confirmada: false };
+    }
+
+    return this.ctx.storage.transactionSync(() => {
+      const linhas = this.ctx.storage.sql.exec(`
+        UPDATE reservas
+        SET status = 'confirmada',
+            atualizada_em = ?
+        WHERE id = ?
+          AND status = 'reservada'
+        RETURNING id
+      `, new Date().toISOString(), reservaId).toArray();
+
+      return {
+        confirmada: linhas.length === 1
+      };
+    });
+  }
+
+  
+  async cancelar(reservaId) {
+    if (typeof reservaId !== "string" || !reservaId) {
+      return { cancelada: false };
+    }
+
+    return this.ctx.storage.transactionSync(() => {
+      const linhas = this.ctx.storage.sql.exec(`
+        UPDATE reservas
+        SET status = 'cancelada',
+            atualizada_em = ?
+        WHERE id = ?
+          AND status = 'reservada'
+        RETURNING dia
+      `, new Date().toISOString(), reservaId).toArray();
+
+      if (linhas.length === 0) {
+        return { cancelada: false };
+      }
+
+      const dia = linhas[0].dia;
+
+      const contador = this.ctx.storage.sql.exec(`
+        UPDATE cotas
+        SET utilizadas = utilizadas - 1
+        WHERE dia = ?
+          AND utilizadas > 0
+        RETURNING utilizadas
+      `, dia).toArray();
+
+      if (contador.length !== 1) {
+        throw new Error(
+          "Inconsistencia ao cancelar reserva."
+        );
+      }
+
+      return {
+        cancelada: true,
+        utilizadas: contador[0].utilizadas
+      };
+    });
+  }
+
+ 
+  async listarPendentesAntigas(cursor = null) {
+    const limiteMinutos = 30;
+    const tamanhoPagina = 100;
+
+    const dataLimiteAtual = new Date(
+      Date.now() - limiteMinutos * 60 * 1000
+    ).toISOString();
+
+    let dataLimite = dataLimiteAtual;
+    let ultimaData = null;
+    let ultimoId = null;
+
+    // Continuar uma consulta anterior.
+    if (cursor !== null) {
+      if (
+        typeof cursor !== "object" ||
+        Array.isArray(cursor) ||
+        typeof cursor.dataLimite !== "string" ||
+        typeof cursor.criada_em !== "string" ||
+        typeof cursor.id !== "string" ||
+        !cursor.id ||
+        !Number.isFinite(Date.parse(cursor.dataLimite)) ||
+        !Number.isFinite(Date.parse(cursor.criada_em)) ||
+        cursor.dataLimite > dataLimiteAtual ||
+        cursor.criada_em > cursor.dataLimite
+      ) {
+        throw new Error("Cursor de paginacao invalido.");
+      }
+
+      dataLimite = cursor.dataLimite;
+      ultimaData = cursor.criada_em;
+      ultimoId = cursor.id;
+    }
+
+    let registros;
+
+    if (ultimaData === null) {
+      // Primeira pagina.
+      registros = this.ctx.storage.sql.exec(`
+        SELECT
+          id,
+          dia,
+          status,
+          criada_em,
+          atualizada_em
+        FROM reservas
+        WHERE status = 'reservada'
+          AND criada_em <= ?
+        ORDER BY criada_em ASC, id ASC
+        LIMIT ?
+      `, dataLimite, tamanhoPagina + 1).toArray();
+
+    } else {
+      // Paginas seguintes, sem repetir o ultimo item.
+      registros = this.ctx.storage.sql.exec(`
+        SELECT
+          id,
+          dia,
+          status,
+          criada_em,
+          atualizada_em
+        FROM reservas
+        WHERE status = 'reservada'
+          AND criada_em <= ?
+          AND (
+            criada_em > ?
+            OR (criada_em = ? AND id > ?)
+          )
+        ORDER BY criada_em ASC, id ASC
+        LIMIT ?
+      `,
+        dataLimite,
+        ultimaData,
+        ultimaData,
+        ultimoId,
+        tamanhoPagina + 1
+      ).toArray();
+    }
+
+    const haMais = registros.length > tamanhoPagina;
+    const reservas = registros.slice(0, tamanhoPagina);
+
+    const ultimaReserva = reservas[reservas.length - 1];
+
+    const proximoCursor = haMais && ultimaReserva
+      ? {
+          dataLimite,
+          criada_em: ultimaReserva.criada_em,
+          id: ultimaReserva.id
+        }
+      : null;
+
+    return {
+      totalEncontradas: reservas.length,
+      criterioMinutos: limiteMinutos,
+      haMais,
+      proximoCursor,
+      reservas
+    };
+  }
+
+ 
+  async consultarEstadoReserva(reservaId) {
+    if (
+      typeof reservaId !== "string" ||
+      reservaId.length === 0 ||
+      reservaId.length > 128
+    ) {
+      throw new Error("Identificador de reserva invalido.");
+    }
+
+    const registros = this.ctx.storage.sql.exec(`
+      SELECT
+        id,
+        dia,
+        status,
+        criada_em,
+        atualizada_em
+      FROM reservas
+      WHERE id = ?
+      LIMIT 1
+    `, reservaId).toArray();
+
+    if (registros.length === 0) {
+      return {
+        encontrada: false,
+        reserva: null
       };
     }
 
     return {
-      permitido: true,
-      utilizadas: linhas[0].utilizadas,
-      limite
+      encontrada: true,
+      reserva: registros[0]
     };
   }
 }
-

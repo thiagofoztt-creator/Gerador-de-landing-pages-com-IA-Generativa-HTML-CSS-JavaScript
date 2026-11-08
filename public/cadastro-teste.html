@@ -1,0 +1,194 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+  <title>Cadastro de Teste | Thiago IA</title>
+
+  <script
+    src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+    async defer>
+  </script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: #101020;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    main {
+      width: min(420px, 92%);
+      background: #202038;
+      padding: 28px;
+      border-radius: 16px;
+    }
+
+    h1 { text-align: center; }
+
+    label {
+      display: block;
+      margin-top: 16px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-top: 6px;
+      border: 1px solid #777;
+      border-radius: 8px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 20px;
+      background: #7455e8;
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: .6;
+      cursor: wait;
+    }
+
+    .cf-turnstile { margin-top: 20px; }
+    #mensagem { margin-top: 16px; }
+  </style>
+</head>
+
+<body>
+<main>
+  <h1>Thiago IA</h1>
+  <p>Cadastro de homologação</p>
+
+  <form id="cadastro">
+    <label for="nome">Nome</label>
+    <input id="nome" name="name"
+           required minlength="2"
+           maxlength="100" autocomplete="name">
+
+    <label for="email">E-mail</label>
+    <input id="email" name="email"
+           type="email" required
+           autocomplete="email">
+
+    <label for="senha">Senha</label>
+    <input id="senha" name="password"
+           type="password" required
+           minlength="12" maxlength="256"
+           autocomplete="new-password">
+
+    <label for="confirmar">Confirmar senha</label>
+    <input id="confirmar"
+           type="password" required
+           autocomplete="new-password">
+
+    <div class="cf-turnstile"
+         data-sitekey="0x4AAAAAAFp5IeD0PVhd6AOv"
+         data-action="register">
+    </div>
+
+    <button id="enviar" type="submit">
+      Criar conta de teste
+    </button>
+
+    <p id="mensagem" role="status"
+       aria-live="polite"></p>
+  </form>
+</main>
+
+<script>
+  const form = document.getElementById("cadastro");
+  const mensagem = document.getElementById("mensagem");
+  const enviar = document.getElementById("enviar");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+
+    const senha = document.getElementById("senha").value;
+    const confirmar =
+      document.getElementById("confirmar").value;
+
+    if (senha !== confirmar) {
+      mensagem.textContent = "As senhas não coincidem.";
+      return;
+    }
+
+    const token = window.turnstile?.getResponse();
+
+    if (!token) {
+      mensagem.textContent =
+        "Conclua a verificação de segurança.";
+      return;
+    }
+
+    enviar.disabled = true;
+    mensagem.textContent = "Processando cadastro...";
+
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          name: document.getElementById("nome").value,
+          email: document.getElementById("email").value,
+          password: senha,
+          turnstileToken: token
+        })
+      });
+
+      
+const contentType =
+  response.headers.get("content-type") || "";
+
+if (!contentType.toLowerCase().includes("application/json")) {
+  mensagem.textContent =
+    `Servidor retornou HTTP ${response.status} sem JSON.`;
+  return;
+}
+
+let resultado;
+
+try {
+  resultado = await response.json();
+} catch {
+  mensagem.textContent =
+    `Resposta JSON inválida. HTTP ${response.status}.`;
+  return;
+}
+
+
+      if (response.status === 201) {
+        mensagem.textContent =
+          "Conta de teste criada com sucesso.";
+        form.reset();
+      } else {
+        mensagem.textContent =
+          resultado.erro || "Não foi possível cadastrar.";
+      }
+    } catch {
+      mensagem.textContent =
+        "Falha na comunicação com o servidor.";
+    } finally {
+      enviar.disabled = false;
+      window.turnstile?.reset();
+    }
+  });
+</script>
+</body>
+</html>

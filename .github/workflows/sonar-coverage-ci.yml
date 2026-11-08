@@ -1,0 +1,109 @@
+name: SonarQube CI com cobertura (ativacao controlada)
+
+# Executar apenas apos configurar SONAR_TOKEN, ativar SONAR_CI_ENABLED
+# e desligar Automatic Analysis no SonarQube Cloud.
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "worker/**"
+      - "tests/**"
+      - "migrations/**"
+      - "public/**"
+      - "vitest.config.mjs"
+      - ".github/workflows/sonar-coverage-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  diagnosticar-habilitacao:
+    name: Conferir habilitacao do SonarQube CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar se SONAR_CI_ENABLED esta ativo
+        env:
+          FLAG_ATIVA: ${{ vars.SONAR_CI_ENABLED == 'true' }}
+        run: |
+          if [ "$FLAG_ATIVA" = "true" ]; then
+            echo "SONAR_CI_ENABLED habilitado."
+          else
+            echo "::warning::SONAR_CI_ENABLED nao esta ativo neste evento; conferir variavel do repositorio com valor exato true."
+          fi
+
+  analisar-sonar-com-cobertura:
+    if: ${{ vars.SONAR_CI_ENABLED == 'true' }}
+    name: Analise CI SonarQube e LCOV
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Baixar repositorio incluindo historico para PR
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+
+      - name: Configurar Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.4.4"
+
+      - name: Instalar dependencias do projeto
+        run: bun install --frozen-lockfile --ignore-scripts
+
+      - name: Instalar ferramentas de teste fixadas
+        run: |
+          bun add -d -E --ignore-scripts "vitest@4.1.12" \
+            "@cloudflare/vitest-plugin@1.6.0" \
+            "@vitest/coverage-istanbul@4.1.12"
+
+      - name: Testar e produzir relatorio LCOV
+        run: |
+          ./node_modules/.bin/vitest run --coverage \
+            tests/auth-d1.integration.test.mjs \
+            tests/auth-http-security.integration.test.mjs \
+            tests/auth-access-control.integration.test.mjs \
+            tests/gerar-origin.integration.test.mjs \
+            tests/plans.integration.test.mjs \
+            tests/cota-diaria.integration.test.mjs \
+            tests/coverage-security.integration.test.mjs \
+            tests/coverage-routes.integration.test.mjs \
+            tests/frontend-js.integration.test.mjs \
+            tests/projects-d1.integration.test.mjs \
+            tests/cloud-ui.integration.test.mjs \
+            tests/cloud-projects.integration.test.mjs
+          test -s coverage/lcov.info
+          grep -q '^SF:.*worker/' coverage/lcov.info
+
+      - name: Verificar segredo de analise sem revelar valor
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        shell: bash
+        run: |
+          if [ -z "$SONAR_TOKEN" ]; then
+            echo "::error::SONAR_TOKEN nao encontrado nos segredos do repositorio."
+            exit 1
+          fi
+          echo "Credencial de analise configurada."
+
+      - name: Enviar analise ao SonarQube Cloud
+        uses: SonarSource/sonarqube-scan-action@d209202bc7d53ff1cc128f7f907dac145c9d6ae9 # v8.3.0
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: >
+            -Dsonar.organization=thiagofoztt-creator
+            -Dsonar.projectKey=thiagofoztt-creator_Gerador-de-landing-pages-com-IA-Generativa-HTML-CSS-JavaScript
+            -Dsonar.sources=worker,public
+            -Dsonar.tests=tests
+            -Dsonar.test.inclusions=tests/**/*.mjs
+            -Dsonar.exclusions=**/*.test.mjs,**/node_modules/**,**/coverage/**
+            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+            -Dsonar.qualitygate.wait=true

@@ -152,7 +152,26 @@
         })
       });
 
-      const resultado = await response.json();
+      
+const contentType =
+  response.headers.get("content-type") || "";
+
+if (!contentType.toLowerCase().includes("application/json")) {
+  mensagem.textContent =
+    `Servidor retornou HTTP ${response.status} sem JSON.`;
+  return;
+}
+
+let resultado;
+
+try {
+  resultado = await response.json();
+} catch {
+  mensagem.textContent =
+    `Resposta JSON inválida. HTTP ${response.status}.`;
+  return;
+}
+
 
       if (response.status === 201) {
         mensagem.textContent =
